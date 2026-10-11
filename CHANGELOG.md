@@ -9,7 +9,7 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 
 ### Changed
 
-- Contribution governance: issues without a `bug` or `enhancement` label are labeled automatically so CodeRabbit can plan them, PRs that conflict with the default branch are labeled and their authors notified, and stale issues and PRs are closed (stale after 14 days, closed 30 days later). PR governance no longer passes silently when a bot edits the PR description.
+- Contribution governance: issues without a `bug` or `enhancement` label are labeled automatically when their type can be determined, so CodeRabbit can plan them. Pull requests that conflict with the default branch are labeled, and their authors are notified in a comment. Stale issues and pull requests are labeled after 14 days without activity and closed 30 days later. PR governance no longer passes silently when a bot edits the PR description.
 
 ## [2026.10.0] - 2026-10-08
 
