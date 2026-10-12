@@ -7,6 +7,10 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 
 ## [Unreleased]
 
+### Security
+
+- Development tooling only (not shipped in the integration): npm `overrides` move `katex` to 0.18 (GHSA-238p-pmpm-9mq7, low) and `smol-toml` to 1.9 (GHSA-r4xh-jqrq-34v2, moderate), both pulled in by `markdownlint-cli2`, whose latest release still pins the vulnerable versions.
+
 ### Changed
 
 - Release workflows hardened (least-privilege job permissions, no expressions in shell scripts, no persisted checkout credentials, no dependency caches); scheduled workflows run on Australia/Brisbane time. LICENSE now contains the complete Apache License 2.0 text.
