@@ -379,7 +379,7 @@ This integration builds upon the excellent work of many contributors:
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](./custom_components/philips_airpurifier/LICENSE.txt) file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details. The bundled icon loading and handling code by Thomas Lovén remains under the MIT License ([LICENSE.txt](./custom_components/philips_airpurifier/LICENSE.txt)).
 
 ---
 
