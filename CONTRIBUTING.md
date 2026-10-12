@@ -144,11 +144,14 @@ These rules apply to every contributor, including AI coding agents. The full org
    Do not open PRs that edit the same files as another open PR, such as `CHANGELOG.md`,
    translations, `README.md`, or generated bundles. Wait for the first to merge, rebase, then
    continue.
-4. **Rebase before review.** Rebase on `main` before marking a PR ready for review.
-5. **Resolve conflicts first.** When a PR gets the `conflicts` label, rebase on `main`,
+4. **Act on the Tinkerologie-Bot report.** When PR governance fails, Tinkerologie-Bot posts one comment
+   listing every problem as a numbered item. Fix each item by editing the PR description or pushing
+   the missing change; the check re-runs and the comment updates to passed.
+5. **Rebase before review.** Rebase on `main` before marking a PR ready for review.
+6. **Resolve conflicts first.** When a PR gets the `conflicts` label, rebase on `main`,
    resolve the conflicts (keep every `CHANGELOG.md` entry under `[Unreleased]`), re-run the tests,
    and force-push before doing any other work.
-6. **Stale items.** Issues and PRs with no activity for 14 days are labeled `stale` and closed 30
+7. **Stale items.** Issues and PRs with no activity for 14 days are labeled `stale` and closed 30
    days later unless there is new activity. These labels are exempt:
    - Issues: `pinned`, `security`, `confirmed`, `work-in-progress`, `priority: critical`, `priority: high`.
    - Pull requests: `pinned`, `security`, `work-in-progress`.
