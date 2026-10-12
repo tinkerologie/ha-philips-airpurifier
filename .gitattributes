@@ -1,1 +1,13 @@
+# Git attributes (tinkerologie standard)
 * text=auto eol=lf
+*.py diff=python
+*.go diff=golang
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.gz binary
+*.woff binary
+*.woff2 binary

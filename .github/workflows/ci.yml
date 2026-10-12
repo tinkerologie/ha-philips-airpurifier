@@ -1,20 +1,21 @@
-name: Lint
+name: CI
 
-"on":
-  workflow_dispatch:
+on:
   push:
-    branches:
-      - "main"
+    branches: [main]
   pull_request:
-    branches:
-      - "main"
+  workflow_dispatch:
 
 permissions: {}
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   ruff:
-    name: "Ruff"
-    runs-on: "ubuntu-latest"
+    name: Lint
+    runs-on: ubuntu-latest
     steps:
       - name: Configure git default branch
         run: git config --global init.defaultBranch main

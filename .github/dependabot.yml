@@ -1,46 +1,94 @@
+# Dependabot (tinkerologie standard: see STANDARDS.md in tinkerologie/.github)
 version: 2
 updates:
   # Python dependencies (uv project: pyproject.toml + uv.lock).
   # Checked daily so the Home Assistant floor tracks new stable releases quickly.
-  - package-ecosystem: "uv"
-    directory: "/"
+  - package-ecosystem: uv
+    directory: /
     schedule:
-      interval: "daily"
+      interval: daily
     open-pull-requests-limit: 10
+    labels:
+      - dependencies
+    commit-message:
+      prefix: chore(deps)
     groups:
       homeassistant:
         patterns:
-          - "homeassistant*"
-          - "pytest-homeassistant-custom-component"
+          - homeassistant*
+          - pytest-homeassistant-custom-component
       dev-dependencies:
-        dependency-type: "development"
+        dependency-type: development
         update-types:
-          - "minor"
-          - "patch"
+          - minor
+          - patch
 
   # Dev container base image (mcr.microsoft.com/devcontainers/python).
-  - package-ecosystem: "docker"
-    directory: "/.devcontainer"
+  - package-ecosystem: docker
+    directory: /.devcontainer
     schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
 
   # Dev container features (devcontainer.json), if any are added later.
-  - package-ecosystem: "devcontainers"
-    directory: "/"
+    labels:
+      - dependencies
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      docker-minor-patch:
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
+  - package-ecosystem: devcontainers
+    directory: /
     schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: weekly
+      day: monday
     open-pull-requests-limit: 10
+
+    labels:
+      - dependencies
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      devcontainers-minor-patch:
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+    commit-message:
+      prefix: chore(deps)
     groups:
       github-actions:
         patterns:
-          - "*"
+          - '*'
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      npm-minor-patch:
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
