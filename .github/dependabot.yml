@@ -30,8 +30,6 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 10
-
-  # Dev container features (devcontainer.json), if any are added later.
     labels:
       - dependencies
     commit-message:
@@ -43,6 +41,7 @@ updates:
         update-types:
           - minor
           - patch
+  # Dev container features (devcontainer.json), if any are added later.
   - package-ecosystem: devcontainers
     directory: /
     schedule:
