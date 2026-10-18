@@ -13,6 +13,7 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 
 ### Changed
 
+- CI restored to the tinkerologie standard set: a Test job runs the full pytest suite with coverage on every pull request and push, and uploads coverage to Codecov (OIDC, with a tokenless fallback for forks and Dependabot); a Validate workflow runs hassfest and HACS validation; and a Release workflow creates the GitHub release and tag whenever the manifest version changes on `main`, using that version's CHANGELOG section as the release notes.
 - Pull requests get path labels and at most one type label, `bug` or `enhancement`, from the shared tinkerologie PR labeler. Dependabot pull requests whose largest update is a patch or minor version merge automatically once the checks and commit statuses on their head commit have finished without a failure (a Codecov check that is still pending is not waited for; a Codecov failure blocks); majors, and pull requests with open review threads, stay for review.
 - Release workflows hardened (least-privilege job permissions, no expressions in shell scripts, no persisted checkout credentials, no dependency caches); scheduled workflows run on Australia/Brisbane time. LICENSE now contains the complete Apache License 2.0 text.
 - Workflow layout tidied after the release hardening (no behaviour change): blank-line layout restored in `ci.yml`.
