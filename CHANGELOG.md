@@ -9,7 +9,7 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 
 ### Fixed
 
-- AMF870 units with `AWS_Philips_AIR_Combo@86` firmware are now handled as push-only: this firmware never answers a status read and only pushes status when something changes, so setup could keep retrying and the device went unavailable whenever it was idle in standby. The integration now briefly changes the display backlight (`D0312D`, 0/100) to get a status push at setup and on reconnect, then restores the last-known backlight value (the display may flicker briefly), and uses the 30-minute push-only watchdog (the per-device watchdog options still apply). Existing AMF870 entries pick this up after a restart or reload, with no reconfiguration needed. Thanks to @mbreitkreuz for the detailed analysis (#132).
+- AMF870 units with `AWS_Philips_AIR_Combo@86` firmware are now handled as push-only: this firmware never answers a status read and only pushes status when something changes, so setup could keep retrying and the device went unavailable whenever it was idle in standby. The integration now briefly changes the display backlight (`D0312D`, 0/100) to get a status push at setup and on reconnect, then restores the last-known backlight value (the display may flicker briefly), and uses the fixed 30-minute push-only watchdog. The per-device option to turn the watchdog off still applies; the missed-package threshold doesn't apply to push-only models. Existing AMF870 entries pick this up after a restart or reload, with no reconfiguration needed. Thanks to @mbreitkreuz for the detailed analysis (#132).
 
 ### Security
 

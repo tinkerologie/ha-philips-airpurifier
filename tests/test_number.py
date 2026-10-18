@@ -312,7 +312,7 @@ async def test_amf870_creates_oscillation_and_target_temp_numbers(
         patch(
             "custom_components.philips_airpurifier.coordinator.async_fetch_status_with_nudge",
             AsyncMock(return_value=status.copy()),
-        ),
+        ) as mock_nudge_fetch,
         patch(
             "custom_components.philips_airpurifier.coordinator.async_create_client",
         ) as mock_create_client,
@@ -327,6 +327,9 @@ async def test_amf870_creates_oscillation_and_target_temp_numbers(
         await hass.async_block_till_done()
 
     assert entry.state is ConfigEntryState.LOADED
+    # AMF870 is push-only: setup must fetch via the nudge, never a direct read.
+    mock_nudge_fetch.assert_awaited_once()
+    client.get_status.assert_not_awaited()
 
     entity_registry = er.async_get(hass)
     suffixes = {
