@@ -5,8 +5,7 @@
       "already_configured": "Dispozitiv deja configurat",
       "model_unsupported": "Modelul nu este suportat",
       "different_device": "Dispozitivul de la această adresă este diferit de cel inițial",
-      "cannot_connect": "Nu se poate conecta la dispozitiv",
-      "reconfigure_successful": "Reconfigurare reușită"
+      "cannot_connect": "Nu se poate conecta la dispozitiv"
     },
     "step": {
       "user": {
@@ -22,6 +21,20 @@
     "error": {
       "invalid_host": "Nume de gazdă sau adresă IP invalidă",
       "cannot_connect": "Nu se poate conecta la dispozitiv"
+    }
+  },
+  "exceptions": {
+    "cannot_connect": {
+      "message": "Conectarea la dispozitivul de la {host} a eșuat"
+    },
+    "update_failed": {
+      "message": "Eroare la comunicarea cu dispozitivul de la {host}"
+    },
+    "command_failed": {
+      "message": "Trimiterea comenzii către dispozitivul de la {host} a eșuat"
+    },
+    "unknown_filter_type": {
+      "message": "Tip de filtru necunoscut: {filter_type}"
     }
   }
 }

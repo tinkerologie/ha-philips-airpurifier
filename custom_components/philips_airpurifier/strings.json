@@ -5,8 +5,7 @@
       "already_configured": "Device already configured",
       "model_unsupported": "Model unsupported",
       "cannot_connect": "Cannot connect to device",
-      "different_device": "The device at this address is different from the original",
-      "reconfigure_successful": "Reconfiguration successful"
+      "different_device": "The device at this address is different from the original"
     },
     "step": {
       "user": {
@@ -62,6 +61,7 @@
               "night": "Night",
               "sleep": "Sleep",
               "sleep_allergy": "Sleep/Allergy",
+              "allergy_sleep": "Allergy/Sleep",
               "turbo": "Turbo",
               "medium": "Medium",
               "gas": "Gas",
@@ -395,6 +395,18 @@
     },
     "set_child_lock_failed": {
       "message": "Set child lock failed for {entity_id}"
+    },
+    "cannot_connect": {
+      "message": "Failed to connect to device at {host}"
+    },
+    "update_failed": {
+      "message": "Error communicating with device at {host}"
+    },
+    "command_failed": {
+      "message": "Failed to send command to device at {host}"
+    },
+    "unknown_filter_type": {
+      "message": "Unknown filter type: {filter_type}"
     }
   },
   "services": {

@@ -1064,7 +1064,7 @@ dev = [
 requires-dist = [
     { name = "codespell", marker = "extra == 'dev'" },
     { name = "homeassistant", marker = "extra == 'dev'", specifier = ">=2026.8.1" },
-    { name = "philips-airctrl", specifier = "==1.2.0" },
+    { name = "philips-airctrl", specifier = "==1.3.0" },
     { name = "pyright", marker = "extra == 'dev'" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pytest-asyncio", marker = "extra == 'dev'" },
@@ -1710,7 +1710,7 @@ wheels = [
 
 [[package]]
 name = "philips-airctrl"
-version = "1.2.0"
+version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiocoap" },
@@ -1721,9 +1721,9 @@ dependencies = [
     { name = "pyyaml" },
     { name = "tabulate" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e8/c0/3aca39aeaa8dd104e24aa80bbb3c0d7aeb37995d4b431d06aeb99960a6ab/philips_airctrl-1.2.0.tar.gz", hash = "sha256:82f672786e9a4175b6648858ebaca23f31839c5fc632d23f39236b090a0ce2c0", size = 88723, upload-time = "2026-07-01T23:40:44.036Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6d/9b/82b989a86ce595d161b79db6bab11fd78bf8251646f41f6c470cf78c6723/philips_airctrl-1.3.0.tar.gz", hash = "sha256:7795224fb7bf7f11d3414e940221d8c1f57a6d8b69be0b6156dbd21df0afc0a3", size = 128085, upload-time = "2026-10-19T00:21:13.968Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/23/eb/bc22af9591b96da2d6f0433f84e05a7419a917bb1bc2feaafaecf78cde2e/philips_airctrl-1.2.0-py3-none-any.whl", hash = "sha256:87696f0098b3a8ad4259a46b236479825db4386e02020a4ffee9f3bc8cdbcd73", size = 24536, upload-time = "2026-07-01T23:40:42.658Z" },
+    { url = "https://files.pythonhosted.org/packages/d1/35/532ef970cfbeb21e866c7106b8c6a4691d7dd3e82f49e289e7e9e8953587/philips_airctrl-1.3.0-py3-none-any.whl", hash = "sha256:6ba903fbca87950b6f7f3cf433c7d41cff02a04b23e8c32dff3a06caebdd08fe", size = 29773, upload-time = "2026-10-19T00:21:12.532Z" },
 ]
 
 [[package]]

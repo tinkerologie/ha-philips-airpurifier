@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -14,12 +14,12 @@ from custom_components.philips_airpurifier.services import (
     _get_coordinator_from_entity_id,
     _reset_filter_counters,
     async_setup_services,
-    async_unload_services,
 )
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import area_registry as ar, device_registry as dr, entity_registry as er
+from homeassistant.helpers.target import SelectedEntities
 
 
 def _get_fan_entity_id(hass: HomeAssistant, config_entry: MockConfigEntry) -> str:
@@ -47,19 +47,56 @@ async def test_get_coordinator_from_entity_id_missing_entity(hass: HomeAssistant
     assert _get_coordinator_from_entity_id(hass, "fan.missing") is None
 
 
-async def test_setup_and_unload_services(hass: HomeAssistant) -> None:
-    """Test service registration and unload are idempotent."""
+async def test_setup_services_idempotent(hass: HomeAssistant) -> None:
+    """Test service registration is idempotent."""
     await async_setup_services(hass)
     await async_setup_services(hass)
 
     assert hass.services.has_service(DOMAIN, SERVICE_FILTER_RESET)
     assert hass.services.has_service(DOMAIN, SERVICE_SET_CHILD_LOCK)
 
-    await async_unload_services(hass)
-    await async_unload_services(hass)
 
-    assert not hass.services.has_service(DOMAIN, SERVICE_FILTER_RESET)
-    assert not hass.services.has_service(DOMAIN, SERVICE_SET_CHILD_LOCK)
+async def test_set_child_lock_service_with_target(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+    mock_coap_client: AsyncMock,
+) -> None:
+    """Test a targeted call passes schema validation and reaches the device."""
+    entity_id = _get_fan_entity_id(hass, init_integration)
+    mock_coap_client.set_control_values.reset_mock()
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_SET_CHILD_LOCK,
+        {"enabled": True},
+        target={"entity_id": entity_id},
+        blocking=True,
+    )
+
+    mock_coap_client.set_control_values.assert_awaited_once_with(data={PhilipsApi.CHILD_LOCK: True})
+
+
+async def test_services_remain_after_last_entry_unloaded(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+) -> None:
+    """Test services stay registered and reject targets of an unloaded entry."""
+    entity_id = _get_fan_entity_id(hass, init_integration)
+
+    await hass.config_entries.async_unload(init_integration.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.services.has_service(DOMAIN, SERVICE_FILTER_RESET)
+    assert hass.services.has_service(DOMAIN, SERVICE_SET_CHILD_LOCK)
+    assert _get_coordinator_from_entity_id(hass, entity_id) is None
+
+    with pytest.raises(ServiceValidationError, match="Invalid target entity"):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SET_CHILD_LOCK,
+            {"entity_id": entity_id, "enabled": True},
+            blocking=True,
+        )
 
 
 async def test_filter_reset_service_calls_reset(
@@ -73,8 +110,8 @@ async def test_filter_reset_service_calls_reset(
 
     with (
         patch(
-            "custom_components.philips_airpurifier.services.async_extract_entity_ids",
-            new=AsyncMock(return_value=[entity_id]),
+            "custom_components.philips_airpurifier.services._extract_selected_entities",
+            new=MagicMock(return_value=SelectedEntities(referenced={entity_id})),
         ),
         patch(
             "custom_components.philips_airpurifier.services._reset_filter_counters",
@@ -102,8 +139,8 @@ async def test_filter_reset_service_wraps_errors(
 
     with (
         patch(
-            "custom_components.philips_airpurifier.services.async_extract_entity_ids",
-            new=AsyncMock(return_value=[entity_id]),
+            "custom_components.philips_airpurifier.services._extract_selected_entities",
+            new=MagicMock(return_value=SelectedEntities(referenced={entity_id})),
         ),
         patch(
             "custom_components.philips_airpurifier.services._reset_filter_counters",
@@ -131,8 +168,8 @@ async def test_set_child_lock_service_calls_coordinator(
 
     with (
         patch(
-            "custom_components.philips_airpurifier.services.async_extract_entity_ids",
-            new=AsyncMock(return_value=[entity_id]),
+            "custom_components.philips_airpurifier.services._extract_selected_entities",
+            new=MagicMock(return_value=SelectedEntities(referenced={entity_id})),
         ),
         patch.object(coordinator, "async_set_control_value", new=AsyncMock()) as set_mock,
     ):
@@ -158,8 +195,8 @@ async def test_set_child_lock_service_wraps_errors(
 
     with (
         patch(
-            "custom_components.philips_airpurifier.services.async_extract_entity_ids",
-            new=AsyncMock(return_value=[entity_id]),
+            "custom_components.philips_airpurifier.services._extract_selected_entities",
+            new=MagicMock(return_value=SelectedEntities(referenced={entity_id})),
         ),
         patch.object(
             coordinator,
@@ -223,8 +260,8 @@ async def test_filter_reset_service_invalid_entity_raises(
 
     with (
         patch(
-            "custom_components.philips_airpurifier.services.async_extract_entity_ids",
-            new=AsyncMock(return_value=["fan.unknown_entity"]),
+            "custom_components.philips_airpurifier.services._extract_selected_entities",
+            new=MagicMock(return_value=SelectedEntities(referenced={"fan.unknown_entity"})),
         ),
         pytest.raises(ServiceValidationError, match="Invalid target entity"),
     ):
@@ -244,8 +281,8 @@ async def test_set_child_lock_service_invalid_entity_raises(
 
     with (
         patch(
-            "custom_components.philips_airpurifier.services.async_extract_entity_ids",
-            new=AsyncMock(return_value=["fan.unknown_entity"]),
+            "custom_components.philips_airpurifier.services._extract_selected_entities",
+            new=MagicMock(return_value=SelectedEntities(referenced={"fan.unknown_entity"})),
         ),
         pytest.raises(ServiceValidationError, match="Invalid target entity"),
     ):
@@ -265,8 +302,8 @@ async def test_filter_reset_service_no_targets_raises(
 
     with (
         patch(
-            "custom_components.philips_airpurifier.services.async_extract_entity_ids",
-            new=AsyncMock(return_value=[]),
+            "custom_components.philips_airpurifier.services._extract_selected_entities",
+            new=MagicMock(return_value=SelectedEntities()),
         ),
         pytest.raises(ServiceValidationError, match="No target entities provided"),
     ):
@@ -286,8 +323,8 @@ async def test_set_child_lock_service_no_targets_raises(
 
     with (
         patch(
-            "custom_components.philips_airpurifier.services.async_extract_entity_ids",
-            new=AsyncMock(return_value=[]),
+            "custom_components.philips_airpurifier.services._extract_selected_entities",
+            new=MagicMock(return_value=SelectedEntities()),
         ),
         pytest.raises(ServiceValidationError, match="No target entities provided"),
     ):
@@ -316,3 +353,107 @@ async def test_get_coordinator_from_entity_wrong_domain(
     )
 
     assert _get_coordinator_from_entity_id(hass, "light.other_light") is None
+
+
+async def test_set_child_lock_device_target_sends_once(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+) -> None:
+    """Test a device target expanding to many entities sends the command once."""
+    await async_setup_services(hass)
+    device_registry = dr.async_get(hass)
+    device = dr.async_entries_for_config_entry(device_registry, init_integration.entry_id)[0]
+    assert len(er.async_entries_for_device(er.async_get(hass), device.id)) > 1
+
+    with patch.object(init_integration.runtime_data, "async_set_control_value", new=AsyncMock()) as set_mock:
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SET_CHILD_LOCK,
+            {"enabled": True},
+            target={"device_id": device.id},
+            blocking=True,
+        )
+
+    set_mock.assert_awaited_once_with(PhilipsApi.CHILD_LOCK, True)
+
+
+async def test_area_target_skips_unrelated_entities(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+) -> None:
+    """Test entities of other integrations pulled in by an area are skipped."""
+    await async_setup_services(hass)
+    area = ar.async_get(hass).async_create("Office")
+    device_registry = dr.async_get(hass)
+    device = dr.async_entries_for_config_entry(device_registry, init_integration.entry_id)[0]
+    device_registry.async_update_device(device.id, area_id=area.id)
+    entity_registry = er.async_get(hass)
+    other = entity_registry.async_get_or_create("light", "demo", "unrelated-light", original_name="Lamp")
+    entity_registry.async_update_entity(other.entity_id, area_id=area.id)
+
+    with patch.object(init_integration.runtime_data, "async_set_control_value", new=AsyncMock()) as set_mock:
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SET_CHILD_LOCK,
+            {"enabled": False},
+            target={"area_id": area.id},
+            blocking=True,
+        )
+
+    set_mock.assert_awaited_once_with(PhilipsApi.CHILD_LOCK, False)
+
+
+async def test_direct_invalid_target_raises_before_any_command(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+) -> None:
+    """Test an invalid directly named entity fails the call before any device write."""
+    await async_setup_services(hass)
+    other = er.async_get(hass).async_get_or_create("light", "demo", "unrelated-light")
+
+    with (
+        patch.object(init_integration.runtime_data, "async_set_control_value", new=AsyncMock()) as set_mock,
+        pytest.raises(ServiceValidationError, match="Invalid target entity"),
+    ):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SET_CHILD_LOCK,
+            {"enabled": True},
+            target={"entity_id": [_get_fan_entity_id(hass, init_integration), other.entity_id]},
+            blocking=True,
+        )
+
+    set_mock.assert_not_awaited()
+
+
+async def test_set_child_lock_all_target_reaches_every_purifier(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+) -> None:
+    """Test entity_id: all resolves to every loaded purifier."""
+    await async_setup_services(hass)
+
+    with patch.object(init_integration.runtime_data, "async_set_control_value", new=AsyncMock()) as set_mock:
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SET_CHILD_LOCK,
+            {"enabled": True},
+            target={"entity_id": "all"},
+            blocking=True,
+        )
+
+    set_mock.assert_awaited_once_with(PhilipsApi.CHILD_LOCK, True)
+
+
+async def test_all_target_without_loaded_purifiers_raises(hass: HomeAssistant) -> None:
+    """Test entity_id: all with no loaded purifier reports no targets."""
+    await async_setup_services(hass)
+
+    with pytest.raises(ServiceValidationError, match="No target entities provided"):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SET_CHILD_LOCK,
+            {"enabled": True},
+            target={"entity_id": "all"},
+            blocking=True,
+        )

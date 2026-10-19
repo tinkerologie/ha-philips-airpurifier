@@ -14,9 +14,9 @@ else:
         import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import ATTR_ENTITY_ID, ENTITY_MATCH_ALL
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
-from homeassistant.helpers import config_validation as cv, entity_registry as er
-from homeassistant.helpers.service import async_extract_entity_ids
+from homeassistant.helpers import config_validation as cv, entity_registry as er, target as target_helpers
 
 from .const import DOMAIN, PhilipsApi
 
@@ -30,8 +30,12 @@ _LOGGER = logging.getLogger(__name__)
 SERVICE_FILTER_RESET = "filter_reset"
 SERVICE_SET_CHILD_LOCK = "set_child_lock"
 
+# Both actions take a target (entity, device, area, ...), which Home Assistant
+# merges into the call data before validating it, so the target fields must be
+# part of the schema. Without them every targeted call is rejected.
 FILTER_RESET_SCHEMA = vol.Schema(
     {
+        **cv.ENTITY_SERVICE_FIELDS,
         vol.Optional("filter_type", default="all"): vol.In(
             [
                 "all",
@@ -47,6 +51,7 @@ FILTER_RESET_SCHEMA = vol.Schema(
 
 SET_CHILD_LOCK_SCHEMA = vol.Schema(
     {
+        **cv.ENTITY_SERVICE_FIELDS,
         vol.Required("enabled"): cv.boolean,
     }
 )
@@ -61,15 +66,59 @@ def _get_coordinator_from_entity_id(hass: HomeAssistant, entity_id: str) -> Phil
         return None
 
     config_entry = hass.config_entries.async_get_entry(entity_entry.config_entry_id)
-    if (
-        not config_entry
-        or config_entry.domain != DOMAIN
-        or config_entry.runtime_data is None
-        or config_entry.state is not ConfigEntryState.LOADED
-    ):
+    # Check the state before touching runtime_data: it is unset on an entry
+    # that never finished loading (e.g. one in setup retry).
+    if not config_entry or config_entry.domain != DOMAIN or config_entry.state is not ConfigEntryState.LOADED:
         return None
 
     return config_entry.runtime_data
+
+
+def _extract_selected_entities(hass: HomeAssistant, call: ServiceCall) -> target_helpers.SelectedEntities:
+    """Expand the call's target (entities, devices, areas, ...) into entity IDs."""
+    return target_helpers.async_extract_referenced_entity_ids(hass, target_helpers.TargetSelection(call.data))
+
+
+def _resolve_target_coordinators(
+    hass: HomeAssistant, call: ServiceCall
+) -> list[tuple[str, PhilipsAirPurifierCoordinator]]:
+    """Resolve the call's target to one coordinator per purifier.
+
+    A device or area target expands to every entity of that purifier, so the
+    coordinators are de-duplicated to send each device a command only once.
+    Entities named directly must belong to a loaded purifier; entities only
+    pulled in by a device/area/label target are skipped when they are not ours.
+    """
+    coordinators: dict[int, tuple[str, PhilipsAirPurifierCoordinator]] = {}
+    if call.data.get(ATTR_ENTITY_ID) == ENTITY_MATCH_ALL:
+        # "all" is accepted by the target schema but dropped by target
+        # expansion, so resolve it to every loaded purifier explicitly.
+        for entry in hass.config_entries.async_loaded_entries(DOMAIN):
+            coordinators.setdefault(id(entry.runtime_data), (ENTITY_MATCH_ALL, entry.runtime_data))
+        if coordinators:
+            return list(coordinators.values())
+
+    selected = _extract_selected_entities(hass, call)
+    for entity_id in sorted(selected.referenced | selected.indirectly_referenced):
+        coordinator = _get_coordinator_from_entity_id(hass, entity_id)
+        if coordinator is None:
+            if entity_id in selected.referenced:
+                raise ServiceValidationError(
+                    f"Invalid target entity: {entity_id}",
+                    translation_domain=DOMAIN,
+                    translation_key="invalid_target_entity",
+                    translation_placeholders={"entity_id": entity_id},
+                )
+            continue
+        coordinators.setdefault(id(coordinator), (entity_id, coordinator))
+
+    if not coordinators:
+        raise ServiceValidationError(
+            "No target entities provided",
+            translation_domain=DOMAIN,
+            translation_key="no_target_entities",
+        )
+    return list(coordinators.values())
 
 
 async def async_setup_services(hass: HomeAssistant) -> None:
@@ -77,25 +126,9 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
     async def async_filter_reset(call: ServiceCall) -> None:
         """Handle filter reset service call."""
-        entity_ids = await async_extract_entity_ids(call)
-        if not entity_ids:
-            raise ServiceValidationError(
-                "No target entities provided",
-                translation_domain=DOMAIN,
-                translation_key="no_target_entities",
-            )
         filter_type = call.data.get("filter_type", "all")
 
-        for entity_id in entity_ids:
-            coordinator = _get_coordinator_from_entity_id(hass, entity_id)
-            if not coordinator:
-                raise ServiceValidationError(
-                    f"Invalid target entity: {entity_id}",
-                    translation_domain=DOMAIN,
-                    translation_key="invalid_target_entity",
-                    translation_placeholders={"entity_id": entity_id},
-                )
-
+        for entity_id, coordinator in _resolve_target_coordinators(hass, call):
             try:
                 await _reset_filter_counters(coordinator, filter_type)
             except Exception as ex:
@@ -108,25 +141,9 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
     async def async_set_child_lock(call: ServiceCall) -> None:
         """Handle set child lock service call."""
-        entity_ids = await async_extract_entity_ids(call)
-        if not entity_ids:
-            raise ServiceValidationError(
-                "No target entities provided",
-                translation_domain=DOMAIN,
-                translation_key="no_target_entities",
-            )
         enabled = call.data["enabled"]
 
-        for entity_id in entity_ids:
-            coordinator = _get_coordinator_from_entity_id(hass, entity_id)
-            if not coordinator:
-                raise ServiceValidationError(
-                    f"Invalid target entity: {entity_id}",
-                    translation_domain=DOMAIN,
-                    translation_key="invalid_target_entity",
-                    translation_placeholders={"entity_id": entity_id},
-                )
-
+        for entity_id, coordinator in _resolve_target_coordinators(hass, call):
             try:
                 await coordinator.async_set_control_value(PhilipsApi.CHILD_LOCK, enabled)
             except Exception as ex:
@@ -147,13 +164,6 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             hass.services.async_register(DOMAIN, service_name, handler, schema=schema)
 
 
-async def async_unload_services(hass: HomeAssistant) -> None:
-    """Unload services for Philips Air Purifier integration."""
-    for service_name in (SERVICE_FILTER_RESET, SERVICE_SET_CHILD_LOCK):
-        if hass.services.has_service(DOMAIN, service_name):
-            hass.services.async_remove(DOMAIN, service_name)
-
-
 async def _reset_filter_counters(
     coordinator: PhilipsAirPurifierCoordinator,
     filter_type: str,
@@ -170,8 +180,12 @@ async def _reset_filter_counters(
         filters_to_reset = list(filter_mappings.values())
     else:
         if filter_type not in filter_mappings:
-            msg = f"Unknown filter type: {filter_type}"
-            raise ServiceValidationError(msg)
+            raise ServiceValidationError(
+                f"Unknown filter type: {filter_type}",
+                translation_domain=DOMAIN,
+                translation_key="unknown_filter_type",
+                translation_placeholders={"filter_type": filter_type},
+            )
         filters_to_reset = [filter_mappings[filter_type]]
 
     status = coordinator.data or {}

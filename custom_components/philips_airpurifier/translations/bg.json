@@ -5,8 +5,7 @@
       "already_configured": "Устройството вече е конфигурирано",
       "model_unsupported": "Моделът не се поддържа",
       "different_device": "Устройството на този адрес е различно от първоначалното",
-      "cannot_connect": "Неуспешно свързване с устройството",
-      "reconfigure_successful": "Преконфигурирането е успешно"
+      "cannot_connect": "Неуспешно свързване с устройството"
     },
     "step": {
       "user": {
@@ -60,7 +59,8 @@
               "speed_9": "Скорост 9",
               "speed_10": "Скорост 10",
               "speed_11": "Скорост 11",
-              "speed_12": "Скорост 12"
+              "speed_12": "Скорост 12",
+              "allergy_sleep": "Алергия/Сън"
             }
           }
         }
@@ -279,6 +279,20 @@
       "target_temperature": {
         "name": "Целева температура"
       }
+    }
+  },
+  "exceptions": {
+    "cannot_connect": {
+      "message": "Неуспешно свързване с устройството на {host}"
+    },
+    "update_failed": {
+      "message": "Грешка при комуникация с устройството на {host}"
+    },
+    "command_failed": {
+      "message": "Неуспешно изпращане на команда към устройството на {host}"
+    },
+    "unknown_filter_type": {
+      "message": "Неизвестен тип филтър: {filter_type}"
     }
   }
 }

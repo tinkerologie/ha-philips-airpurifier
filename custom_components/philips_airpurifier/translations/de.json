@@ -5,8 +5,7 @@
       "already_configured": "Gerät is bereits konfiguriert",
       "model_unsupported": "Modell nicht unterstützt",
       "different_device": "Das Gerät an dieser Adresse ist nicht das ursprüngliche Gerät",
-      "cannot_connect": "Verbindung zum Gerät nicht möglich",
-      "reconfigure_successful": "Neukonfiguration erfolgreich"
+      "cannot_connect": "Verbindung zum Gerät nicht möglich"
     },
     "step": {
       "user": {
@@ -295,6 +294,20 @@
       "target_temperature": {
         "name": "Zieltemperatur"
       }
+    }
+  },
+  "exceptions": {
+    "cannot_connect": {
+      "message": "Verbindung zum Gerät unter {host} fehlgeschlagen"
+    },
+    "update_failed": {
+      "message": "Fehler bei der Kommunikation mit dem Gerät unter {host}"
+    },
+    "command_failed": {
+      "message": "Befehl konnte nicht an das Gerät unter {host} gesendet werden"
+    },
+    "unknown_filter_type": {
+      "message": "Unbekannter Filtertyp: {filter_type}"
     }
   }
 }

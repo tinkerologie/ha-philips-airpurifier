@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from unittest.mock import patch
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -214,13 +213,13 @@ async def test_diagnostics_empty_status_and_no_device_entry_branch(
     hass: HomeAssistant,
     init_integration: MockConfigEntry,
 ) -> None:
-    """Test diagnostics branch paths when device lookup fails and status is empty."""
+    """Test diagnostics branch paths when no device entry exists and status is empty."""
     coordinator = init_integration.runtime_data
     coordinator.data = {}
 
     with patch(
-        "custom_components.philips_airpurifier.diagnostics.dr.async_get",
-        return_value=SimpleNamespace(devices={}),
+        "custom_components.philips_airpurifier.diagnostics.dr.async_entries_for_config_entry",
+        return_value=[],
     ):
         result = await async_get_config_entry_diagnostics(hass, init_integration)
 

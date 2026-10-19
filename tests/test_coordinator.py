@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.philips_airpurifier.const import DEFAULT_MISSED_PACKAGE_COUNT
+from custom_components.philips_airpurifier.const import DEFAULT_MISSED_PACKAGE_COUNT, DOMAIN
 from custom_components.philips_airpurifier.coordinator import (
     NUDGE_WATCHDOG_TIMEOUT,
     RECONNECT_INITIAL_DELAY,
@@ -17,7 +17,7 @@ from custom_components.philips_airpurifier.coordinator import (
 )
 from custom_components.philips_airpurifier.model import DeviceInformation
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from .const import MOCK_STATUS_GEN1, TEST_DEVICE_ID, TEST_HOST, TEST_MODEL, TEST_NAME
@@ -98,14 +98,16 @@ async def test_coordinator_set_control_values_error(
     init_integration: MockConfigEntry,
     mock_coap_client: AsyncMock,
 ) -> None:
-    """Test setting control values propagates errors."""
+    """Test setting control values raises a translated HomeAssistantError."""
     coordinator = init_integration.runtime_data
 
     mock_coap_client.set_control_values.side_effect = Exception("connection lost")
 
-    # The method doesn't wrap errors in UpdateFailed, it just propagates the exception
-    with pytest.raises(Exception, match="connection lost"):
+    with pytest.raises(HomeAssistantError, match="connection lost") as exc_info:
         await coordinator.async_set_control_values({"pwr": "1"})
+
+    assert exc_info.value.translation_key == "command_failed"
+    assert exc_info.value.translation_domain == DOMAIN
 
 
 async def test_coordinator_async_update_data(
