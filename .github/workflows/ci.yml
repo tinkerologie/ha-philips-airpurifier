@@ -43,3 +43,68 @@ jobs:
 
       - name: Format
         run: uv run ruff format . --check
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure git default branch
+        run: git config --global init.defaultBranch main
+
+      - name: Checkout the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Configure git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+
+      - name: Set up Python
+        run: uv python install 3.14
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Run tests and generate coverage report
+        run: uv run pytest tests --cov --cov-report=xml --cov-report=term
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage
+          path: coverage.xml
+          if-no-files-found: error
+
+  codecov:
+    name: Coverage
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # check out the repository
+      id-token: write # Codecov OIDC upload
+    env:
+      # OIDC is unavailable to fork and Dependabot PRs; those fall back to tokenless uploads.
+      CODECOV_OIDC: ${{ !(github.event_name == 'pull_request' && (github.event.pull_request.head.repo.fork || github.event.pull_request.user.login == 'dependabot[bot]')) }}
+    steps:
+      # Checkout only provides the file list Codecov needs to map report paths; no PR code runs here.
+      - name: Checkout the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download coverage artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: coverage
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        continue-on-error: ${{ env.CODECOV_OIDC != 'true' }}
+        with:
+          slug: ${{ github.repository }}
+          files: ./coverage.xml
+          use_oidc: ${{ env.CODECOV_OIDC == 'true' }}
+          fail_ci_if_error: ${{ env.CODECOV_OIDC == 'true' }}

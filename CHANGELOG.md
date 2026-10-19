@@ -17,6 +17,7 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 
 ### Changed
 
+- CI restored to the tinkerologie standard set: a Test job runs the full pytest suite with coverage on every pull request and push, and uploads coverage to Codecov (OIDC, with a tokenless fallback for forks and Dependabot); a Validate workflow runs hassfest and HACS validation; and a Release workflow creates the GitHub release and tag whenever the manifest version changes on `main`, using that version's CHANGELOG section as the release notes.
 - Pull requests get path labels and at most one type label, `bug` or `enhancement`, from the shared tinkerologie PR labeler. Dependabot pull requests whose largest update is a patch or minor version merge automatically once the checks and commit statuses on their head commit have finished without a failure (a Codecov check that is still pending is not waited for; a Codecov failure blocks); majors, and pull requests with open review threads, stay for review.
 - Release workflows hardened (least-privilege job permissions, no expressions in shell scripts, no persisted checkout credentials, no dependency caches); scheduled workflows run on Australia/Brisbane time. LICENSE now contains the complete Apache License 2.0 text.
 - Workflow layout tidied after the release hardening (no behaviour change): blank-line layout restored in `ci.yml`.
@@ -25,6 +26,10 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 - Tinkerologie-Bot's comment is now a readable "Pull request checklist": each problem is a numbered heading with plain-English guidance and its items listed underneath, and report updates for a pull request are serialised so an older run can never overwrite a newer one.
 - Contribution governance: issues without a `bug` or `enhancement` label are labeled automatically when their type can be determined (issues labeled `question`, `duplicate`, `invalid`, `wontfix`, or `no-type` are skipped), so CodeRabbit can plan them. Pull requests that conflict with the default branch are labeled, and their authors are notified in a comment. Stale issues and pull requests are labeled after 14 days without activity and closed 30 days later. PR governance now re-validates a human-authored, non-draft PR when a bot such as CodeRabbit edits its description, instead of skipping the check and reporting a pass, only maintainers with write access may use `None` instead of linking an issue, and a link to an issue that does not exist now fails the check.
 - Tinkerologie-Bot now posts one comment on pull requests that fail PR governance, listing every problem to fix, and updates it once they are fixed. PR governance runs from the default branch's workflow (`pull_request_target`), so a pull request cannot change its own check.
+
+### Fixed
+
+- Fixed `ImportError` on setup (e.g. `cannot import name 'FanEntityFeature'`) by importing platform classes and constants from the Home Assistant component packages instead of their `.const` submodules.
 
 ## [2026.10.0] - 2026-10-08
 

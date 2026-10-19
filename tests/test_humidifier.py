@@ -15,12 +15,11 @@ from custom_components.philips_airpurifier.const import (
     DOMAIN,
     FanFunction,
 )
-from homeassistant.components.humidifier.const import (
+from homeassistant.components.humidifier import (
     ATTR_HUMIDITY,
     DOMAIN as HUMIDIFIER_DOMAIN,
 )
-from homeassistant.components.number import ATTR_VALUE, DOMAIN as NUMBER_DOMAIN
-from homeassistant.components.number.const import SERVICE_SET_VALUE
+from homeassistant.components.number import ATTR_VALUE, DOMAIN as NUMBER_DOMAIN, SERVICE_SET_VALUE
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import (
     ATTR_ENTITY_ID,

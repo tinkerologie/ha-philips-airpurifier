@@ -1,14 +1,18 @@
 """Philips Air Purifier humidifier platform."""
 
+# Home Assistant re-exports these platform names from the component package
+# without __all__; importing them from there is the public API.
+# pyright: reportPrivateImportUsage=false
+
 from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING, Any
 
-from homeassistant.components.humidifier import HumidifierEntity
-from homeassistant.components.humidifier.const import (
+from homeassistant.components.humidifier import (
     HumidifierAction,
     HumidifierDeviceClass,
+    HumidifierEntity,
     HumidifierEntityFeature,
 )
 

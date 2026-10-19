@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - custom_components/philips_airpurifier/manifest.json
+
+permissions:
+  contents: read # jobs request only what they need
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the GitHub release and tag
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Extract version from manifest
+        id: version
+        run: |
+          VERSION=$(jq -r '.version // empty' custom_components/philips_airpurifier/manifest.json)
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]{4}\.(1[0-2]|[1-9])\.[0-9]+$'; then
+            echo "::error::manifest.json version '${VERSION}' is not YYYY.MM.PATCH"
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Check if tag already exists
+        id: tag_check
+        env:
+          VERSION_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if git ls-remote --tags origin "refs/tags/v${VERSION_VERSION}" | grep -q .; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create release
+        if: steps.tag_check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Release notes are this version's section of CHANGELOG.md.
+          awk -v heading="## [${VERSION}]" '
+            index($0, heading) == 1 && (length($0) == length(heading) || substr($0, length(heading) + 1, 1) == " ") { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "See [CHANGELOG.md](https://github.com/$REPO/blob/main/CHANGELOG.md) for details." > release-notes.md
+          fi
+          gh release create "$TAG" --target "$GITHUB_SHA" --title "$TAG" --notes-file release-notes.md

@@ -5,8 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from homeassistant.components.number import NumberEntity
-from homeassistant.components.number.const import NumberMode
+from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_ICON, CONF_ENTITY_CATEGORY
 
 from .const import NUMBER_TYPES, FanAttributes

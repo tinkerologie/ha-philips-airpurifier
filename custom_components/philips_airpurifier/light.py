@@ -1,16 +1,20 @@
 """Philips Air Purifier light platform."""
 
+# Home Assistant re-exports these platform names from the component package
+# without __all__; importing them from there is the public API.
+# pyright: reportPrivateImportUsage=false
+
 from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING, Any
 
-from homeassistant.components.light import LightEntity
-from homeassistant.components.light.const import (
+from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     ATTR_EFFECT,
     EFFECT_OFF,
     ColorMode,
+    LightEntity,
     LightEntityFeature,
 )
 from homeassistant.const import ATTR_DEVICE_CLASS, CONF_ENTITY_CATEGORY

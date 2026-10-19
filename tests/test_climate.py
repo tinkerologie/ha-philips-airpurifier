@@ -19,7 +19,7 @@ from custom_components.philips_airpurifier.coordinator import (
     PhilipsAirPurifierCoordinator,
 )
 from custom_components.philips_airpurifier.model import DeviceInformation
-from homeassistant.components.climate.const import (
+from homeassistant.components.climate import (
     ATTR_HVAC_MODE,
     ATTR_PRESET_MODE,
     ATTR_SWING_MODE,
