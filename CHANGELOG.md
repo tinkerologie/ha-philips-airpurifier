@@ -13,7 +13,10 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 
 ### Changed
 
+- Requires `philips-airctrl` 1.3.0 (Pydantic v2 best practices, strict typing with `py.typed`, clearer errors when a client is used before it is initialised). There are no behaviour changes for the integration, and 1.3.0 was tested against a live AC4220.
+- CI runs Pyright in strict mode on every pull request (quality scale `strict-typing` is now done).
 - CI restored to the tinkerologie standard set: a Test job runs the full pytest suite with coverage on every pull request and push, and uploads coverage to Codecov (OIDC, with a tokenless fallback for forks and Dependabot); a Validate workflow runs hassfest and HACS validation; and a Release workflow creates the GitHub release and tag whenever the manifest version changes on `main`, using that version's CHANGELOG section as the release notes.
+- Modernized for Home Assistant 2026.10 and the current Integration Quality Scale: the coordinator receives its config entry explicitly, the reconfigure flow uses Home Assistant's reconfigure helpers, setup and update errors and failed device commands are translated (a failed command now shows "Failed to send command to device at ..." instead of an unknown error), diagnostics no longer use device-registry APIs deprecated in 2026.8, and `quality_scale.yaml` lists the current rule set with accurate statuses.
 - Pull requests get path labels and at most one type label, `bug` or `enhancement`, from the shared tinkerologie PR labeler. Dependabot pull requests whose largest update is a patch or minor version merge automatically once the checks and commit statuses on their head commit have finished without a failure (a Codecov check that is still pending is not waited for; a Codecov failure blocks); majors, and pull requests with open review threads, stay for review.
 - Release workflows hardened (least-privilege job permissions, no expressions in shell scripts, no persisted checkout credentials, no dependency caches); scheduled workflows run on Australia/Brisbane time. LICENSE now contains the complete Apache License 2.0 text.
 - Workflow layout tidied after the release hardening (no behaviour change): blank-line layout restored in `ci.yml`.
@@ -27,6 +30,9 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 
 - Fixed `ImportError` on setup (e.g. `cannot import name 'FanEntityFeature'`) by importing platform classes and constants from the Home Assistant component packages instead of their `.const` submodules.
 - AMF870 units with `AWS_Philips_AIR_Combo@86` firmware are now handled as push-only: this firmware never answers a status read and only pushes status when something changes, so setup could keep retrying and the device went unavailable whenever it was idle in standby. The integration now briefly changes the display backlight (`D0312D`, 0/100) to get a status push at setup and on reconnect, then restores the last-known backlight value (the display may flicker briefly), and uses the fixed 30-minute push-only watchdog. The per-device option to turn the watchdog off still applies; the missed-package threshold doesn't apply to push-only models. Existing AMF870 entries pick this up after a restart or reload, with no reconfiguration needed. Thanks to @mbreitkreuz for the detailed analysis (#132).
+- The `filter_reset` and `set_child_lock` actions accept a target again. Their schemas did not allow the target fields, so Home Assistant rejected every targeted call with "not a valid option at 'entity_id'".
+- The actions stay registered after the last purifier is removed or unloaded, instead of disappearing until Home Assistant restarts. Calling them for an unloaded purifier reports an invalid target instead of an unexpected error.
+- Repair issue titles and action names are now shown in English instead of raw translation keys (they were missing from `translations/en.json`).
 
 ## [2026.10.0] - 2026-10-08
 

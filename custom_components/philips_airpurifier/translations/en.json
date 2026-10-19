@@ -5,8 +5,7 @@
       "already_configured": "Device already configured",
       "model_unsupported": "Model unsupported",
       "different_device": "The device at this address is different from the original",
-      "cannot_connect": "Cannot connect to device",
-      "reconfigure_successful": "Reconfiguration successful"
+      "cannot_connect": "Cannot connect to device"
     },
     "step": {
       "user": {
@@ -374,6 +373,66 @@
     },
     "set_child_lock_failed": {
       "message": "Set child lock failed for {entity_id}"
+    },
+    "cannot_connect": {
+      "message": "Failed to connect to device at {host}"
+    },
+    "update_failed": {
+      "message": "Error communicating with device at {host}"
+    },
+    "command_failed": {
+      "message": "Failed to send command to device at {host}"
+    },
+    "unknown_filter_type": {
+      "message": "Unknown filter type: {filter_type}"
+    }
+  },
+  "issues": {
+    "connectivity_issue": {
+      "title": "Air Purifier Connectivity Issue",
+      "description": "Your air purifier device is not responding to network requests. This may be due to network connectivity issues, device power state, or IP address changes. Click 'Fix' to attempt automatic resolution."
+    },
+    "entity_registry_cleanup": {
+      "title": "Entity Registry Cleanup Required",
+      "description": "Orphaned or duplicate entities have been detected in the entity registry. This can happen after device reconfigurations or integration updates. Click 'Fix' to clean up automatically."
+    },
+    "filter_replacement_warning": {
+      "title": "Filter Replacement Required",
+      "description": "One or more filters in your air purifier need attention. Check the filter status sensors for replacement or cleaning requirements. Click 'Fix' to acknowledge this warning."
+    },
+    "configuration_migration": {
+      "title": "Configuration Migration Required",
+      "description": "Your integration configuration needs to be updated to support new features. This migration will update your configuration automatically without losing any settings."
+    },
+    "duplicate_entities": {
+      "title": "Duplicate Entities Detected",
+      "description": "Duplicate entities have been detected. This typically happens when entity unique IDs conflict. Click 'Fix' to remove duplicate entities automatically."
+    }
+  },
+  "services": {
+    "filter_reset": {
+      "name": "Reset Filter Life",
+      "description": "Reset filter life counters and maintenance schedules for the specified air purifier.",
+      "fields": {
+        "filter_type": {
+          "name": "Filter Type",
+          "description": "Type of filter to reset (all, pre_filter, hepa_filter, active_carbon_filter, nanoprotect_filter)"
+        },
+        "reset_maintenance_schedule": {
+          "name": "Reset Maintenance Schedule",
+          "description": "Whether to reset the maintenance reminder schedule"
+        }
+      }
+    },
+    "set_child_lock": {
+      "name": "Set Child Lock",
+      "description": "Enable or disable child lock on the air purifier.",
+      "fields": {
+        "enabled": {
+          "name": "Enabled",
+          "description": "Whether to enable or disable child lock"
+        }
+      }
     }
   }
 }

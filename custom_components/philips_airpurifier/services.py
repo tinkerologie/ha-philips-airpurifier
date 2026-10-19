@@ -30,8 +30,12 @@ _LOGGER = logging.getLogger(__name__)
 SERVICE_FILTER_RESET = "filter_reset"
 SERVICE_SET_CHILD_LOCK = "set_child_lock"
 
+# Both actions take a target (entity, device, area, ...), which Home Assistant
+# merges into the call data before validating it, so the target fields must be
+# part of the schema. Without them every targeted call is rejected.
 FILTER_RESET_SCHEMA = vol.Schema(
     {
+        **cv.ENTITY_SERVICE_FIELDS,
         vol.Optional("filter_type", default="all"): vol.In(
             [
                 "all",
@@ -47,6 +51,7 @@ FILTER_RESET_SCHEMA = vol.Schema(
 
 SET_CHILD_LOCK_SCHEMA = vol.Schema(
     {
+        **cv.ENTITY_SERVICE_FIELDS,
         vol.Required("enabled"): cv.boolean,
     }
 )
@@ -61,12 +66,9 @@ def _get_coordinator_from_entity_id(hass: HomeAssistant, entity_id: str) -> Phil
         return None
 
     config_entry = hass.config_entries.async_get_entry(entity_entry.config_entry_id)
-    if (
-        not config_entry
-        or config_entry.domain != DOMAIN
-        or config_entry.runtime_data is None
-        or config_entry.state is not ConfigEntryState.LOADED
-    ):
+    # Check the state before touching runtime_data: it is unset on an entry
+    # that never finished loading (e.g. one in setup retry).
+    if not config_entry or config_entry.domain != DOMAIN or config_entry.state is not ConfigEntryState.LOADED:
         return None
 
     return config_entry.runtime_data
@@ -147,13 +149,6 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             hass.services.async_register(DOMAIN, service_name, handler, schema=schema)
 
 
-async def async_unload_services(hass: HomeAssistant) -> None:
-    """Unload services for Philips Air Purifier integration."""
-    for service_name in (SERVICE_FILTER_RESET, SERVICE_SET_CHILD_LOCK):
-        if hass.services.has_service(DOMAIN, service_name):
-            hass.services.async_remove(DOMAIN, service_name)
-
-
 async def _reset_filter_counters(
     coordinator: PhilipsAirPurifierCoordinator,
     filter_type: str,
@@ -170,8 +165,12 @@ async def _reset_filter_counters(
         filters_to_reset = list(filter_mappings.values())
     else:
         if filter_type not in filter_mappings:
-            msg = f"Unknown filter type: {filter_type}"
-            raise ServiceValidationError(msg)
+            raise ServiceValidationError(
+                f"Unknown filter type: {filter_type}",
+                translation_domain=DOMAIN,
+                translation_key="unknown_filter_type",
+                translation_placeholders={"filter_type": filter_type},
+            )
         filters_to_reset = [filter_mappings[filter_type]]
 
     status = coordinator.data or {}

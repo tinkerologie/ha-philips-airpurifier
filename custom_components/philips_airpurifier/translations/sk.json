@@ -5,8 +5,7 @@
       "already_configured": "Zariadenie je už konfigurované",
       "model_unsupported": "Nepodporovaný model",
       "different_device": "Zariadenie na tejto adrese sa líši od pôvodného",
-      "cannot_connect": "Nedá sa pripojiť k zariadeniu",
-      "reconfigure_successful": "Rekonfigurácia úspešná"
+      "cannot_connect": "Nedá sa pripojiť k zariadeniu"
     },
     "step": {
       "user": {

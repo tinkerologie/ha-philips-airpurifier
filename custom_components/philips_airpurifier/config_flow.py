@@ -18,6 +18,7 @@ else:
 from homeassistant import config_entries, exceptions
 from homeassistant.config_entries import ConfigFlowResult, OptionsFlowWithReload
 from homeassistant.const import CONF_HOST, CONF_NAME
+from homeassistant.core import callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.device_registry import format_mac
 from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
@@ -63,6 +64,7 @@ class PhilipsAirPurifierConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     @staticmethod
+    @callback
     def async_get_options_flow(
         config_entry: config_entries.ConfigEntry,
     ) -> config_entries.OptionsFlow:
@@ -395,14 +397,7 @@ class PhilipsAirPurifierConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Handle reconfiguration to update host while keeping device identity."""
         errors: dict[str, str] = {}
-
-        entry_id = self.context.get("entry_id")
-        if not isinstance(entry_id, str):
-            return self.async_abort(reason="cannot_connect")  # pragma: no cover
-
-        entry = self.hass.config_entries.async_get_entry(entry_id)
-        if entry is None:
-            return self.async_abort(reason="cannot_connect")
+        entry = self._get_reconfigure_entry()
 
         if user_input is not None:
             host_input = user_input.get(CONF_HOST)
@@ -415,10 +410,10 @@ class PhilipsAirPurifierConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     if detected_device_id != entry.data.get(CONF_DEVICE_ID):
                         return self.async_abort(reason="different_device")
 
-                    updated_data = {**entry.data, CONF_HOST: host_input, CONF_STATUS: status}
-                    self.hass.config_entries.async_update_entry(entry, data=updated_data)
-                    await self.hass.config_entries.async_reload(entry.entry_id)
-                    return self.async_abort(reason="reconfigure_successful")
+                    return self.async_update_reload_and_abort(
+                        entry,
+                        data_updates={CONF_HOST: host_input, CONF_STATUS: status},
+                    )
                 except InvalidHost:
                     errors[CONF_HOST] = "invalid_host"
                 except TimeoutError, CannotConnect:

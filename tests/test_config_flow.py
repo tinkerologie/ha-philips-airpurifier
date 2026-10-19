@@ -729,7 +729,7 @@ async def test_reconfigure_flow_success(
     )
     entry.add_to_hass(hass)
 
-    with patch.object(hass.config_entries, "async_reload", new=AsyncMock(return_value=True)) as reload_mock:
+    with patch.object(hass.config_entries, "async_schedule_reload") as reload_mock:
         result = await hass.config_entries.flow.async_init(
             DOMAIN,
             context={"source": SOURCE_RECONFIGURE, "entry_id": entry.entry_id},
@@ -745,7 +745,8 @@ async def test_reconfigure_flow_success(
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reconfigure_successful"
     assert entry.data[CONF_HOST] == TEST_HOST
-    reload_mock.assert_awaited_once_with(entry.entry_id)
+    assert entry.data[CONF_DEVICE_ID] == TEST_DEVICE_ID
+    reload_mock.assert_called_once_with(entry.entry_id)
 
 
 async def test_reconfigure_flow_invalid_host(
@@ -902,19 +903,6 @@ async def test_reconfigure_flow_different_device_abort(
 
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "different_device"
-
-
-async def test_reconfigure_flow_unknown_entry_id_aborts(
-    hass: HomeAssistant,
-) -> None:
-    """Test reconfigure flow aborts if entry_id does not exist."""
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN,
-        context={"source": SOURCE_RECONFIGURE, "entry_id": "missing-entry-id"},
-    )
-
-    assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "cannot_connect"
 
 
 async def test_confirm_step(

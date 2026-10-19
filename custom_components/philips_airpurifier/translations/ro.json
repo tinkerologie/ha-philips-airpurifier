@@ -5,8 +5,7 @@
       "already_configured": "Dispozitiv deja configurat",
       "model_unsupported": "Modelul nu este suportat",
       "different_device": "Dispozitivul de la această adresă este diferit de cel inițial",
-      "cannot_connect": "Nu se poate conecta la dispozitiv",
-      "reconfigure_successful": "Reconfigurare reușită"
+      "cannot_connect": "Nu se poate conecta la dispozitiv"
     },
     "step": {
       "user": {

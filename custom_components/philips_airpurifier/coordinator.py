@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from philips_airctrl import CoAPClient
 
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .client import async_create_client, async_fetch_status_with_nudge
@@ -18,6 +18,7 @@ from .device_models import DEVICE_MODELS
 from .model import ApiGeneration, DeviceInformation, DeviceModelConfig
 
 if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
@@ -64,11 +65,14 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         update_watchdog_enabled: bool = True,
         missed_package_count_override: int | None = None,
         missed_package_count: int | None = None,
+        *,
+        config_entry: ConfigEntry | None = None,
     ) -> None:
         """Initialize the coordinator."""
         super().__init__(
             hass,
             _LOGGER,
+            config_entry=config_entry,
             name=DOMAIN,
         )
         self.client = client
@@ -110,6 +114,24 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.last_update_success = True
             self.async_update_listeners()
         self._device_available = True
+
+    def _update_failed_error(self) -> UpdateFailed:
+        """Build the translated error raised when a status update fails."""
+        return UpdateFailed(
+            f"Error communicating with device at {self.host}",
+            translation_domain=DOMAIN,
+            translation_key="update_failed",
+            translation_placeholders={"host": self.host},
+        )
+
+    def _not_ready_error(self) -> ConfigEntryNotReady:
+        """Build the translated error raised when the first refresh fails."""
+        return ConfigEntryNotReady(
+            f"Failed to connect to device at {self.host}",
+            translation_domain=DOMAIN,
+            translation_key="cannot_connect",
+            translation_placeholders={"host": self.host},
+        )
 
     @property
     def missed_package_count(self) -> int:
@@ -155,7 +177,15 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def async_set_control_values(self, values: dict[str, Any]) -> None:
         """Set multiple control values on the device."""
-        await asyncio.wait_for(self.client.set_control_values(data=values), timeout=COAP_CALL_TIMEOUT)
+        try:
+            await asyncio.wait_for(self.client.set_control_values(data=values), timeout=COAP_CALL_TIMEOUT)
+        except Exception as err:
+            raise HomeAssistantError(
+                f"Failed to send command to device at {self.host}: {err}",
+                translation_domain=DOMAIN,
+                translation_key="command_failed",
+                translation_placeholders={"host": self.host},
+            ) from err
 
     def _build_status_nudge(self) -> list[tuple[str, Any]]:
         """Build the nudge write sequence for a push-on-change device.
@@ -229,8 +259,7 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 return await self._async_nudge_fetch()
             except Exception as err:
                 self._mark_unavailable("status update failed")
-                msg = f"Error communicating with device at {self.host}"
-                raise UpdateFailed(msg) from err
+                raise self._update_failed_error() from err
         try:
             # One-shot read: ongoing updates come from the observe stream, so
             # avoid registering a redundant observation (philips-airctrl >= 1.1.0).
@@ -240,8 +269,7 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return status
         except Exception as err:
             self._mark_unavailable("status update failed")
-            msg = f"Error communicating with device at {self.host}"
-            raise UpdateFailed(msg) from err
+            raise self._update_failed_error() from err
 
     def _start_observing(self) -> None:
         """Start observing device status via CoAP push."""
@@ -401,8 +429,7 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 _LOGGER.debug("First refresh (via nudge) completed for %s", self.host)
             except Exception as err:
                 self._mark_unavailable("initial nudge refresh failed")
-                msg = f"Failed to connect to device at {self.host}"
-                raise ConfigEntryNotReady(msg) from err
+                raise self._not_ready_error() from err
             self._start_observing()
             return
 
@@ -422,8 +449,7 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER.debug("First refresh completed for %s", self.host)
         except Exception as err:
             self._mark_unavailable("initial refresh failed")
-            msg = f"Failed to connect to device at {self.host}"
-            raise ConfigEntryNotReady(msg) from err
+            raise self._not_ready_error() from err
 
         self._last_update = asyncio.get_event_loop().time()
         self._start_observing()

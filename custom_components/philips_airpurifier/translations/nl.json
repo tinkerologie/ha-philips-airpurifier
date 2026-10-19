@@ -5,8 +5,7 @@
       "already_configured": "Apparaat is al geconfigureerd",
       "model_unsupported": "Model wordt niet ondersteund",
       "different_device": "Het apparaat op dit adres is een ander apparaat dan het oorspronkelijke",
-      "cannot_connect": "Kan geen verbinding maken met het apparaat",
-      "reconfigure_successful": "Herconfiguratie geslaagd"
+      "cannot_connect": "Kan geen verbinding maken met het apparaat"
     },
     "step": {
       "user": {

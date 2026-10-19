@@ -8,7 +8,7 @@ from typing import cast
 
 from philips_airctrl import CoAPClient
 
-from homeassistant.config_entries import ConfigEntry, ConfigEntryState
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_NAME, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
@@ -28,7 +28,7 @@ from .const import (
 from .coordinator import PhilipsAirPurifierCoordinator
 from .model import DeviceInformation
 from .repairs import async_check_integration_health
-from .services import async_setup_services, async_unload_services
+from .services import async_setup_services
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -51,7 +51,6 @@ CONFIG_SCHEMA: Callable[[ConfigType], ConfigType] = cast(
     Callable[[ConfigType], ConfigType],
     cv.config_entry_only_config_schema(DOMAIN),  # pyright: ignore[reportUnknownMemberType]
 )
-HEALTH_LISTENERS = f"{DOMAIN}_health_listeners"
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -78,8 +77,12 @@ async def async_setup_entry(
         _LOGGER.debug("Got a valid client for host %s", host)
     except Exception as err:
         _LOGGER.warning("Failed to connect to host %s: %s", host, err)
-        msg = f"Failed to connect to device at {host}"
-        raise ConfigEntryNotReady(msg) from err
+        raise ConfigEntryNotReady(
+            f"Failed to connect to device at {host}",
+            translation_domain=DOMAIN,
+            translation_key="cannot_connect",
+            translation_placeholders={"host": host},
+        ) from err
 
     device_information = DeviceInformation(
         host=host,
@@ -96,6 +99,7 @@ async def async_setup_entry(
         device_information,
         update_watchdog_enabled=entry.options.get(CONF_UPDATE_WATCHDOG, True),
         missed_package_count_override=entry.options.get(CONF_MISSED_PACKAGE_COUNT),
+        config_entry=entry,
     )
 
     if not entry.options.get(CONF_UPDATE_WATCHDOG, True) and CONF_STATUS in entry.data:
@@ -109,8 +113,7 @@ async def async_setup_entry(
     def _schedule_health_check() -> None:
         hass.async_create_task(async_check_integration_health(hass, coordinator))
 
-    remove_health_listener = coordinator.async_add_listener(_schedule_health_check)
-    hass.data.setdefault(HEALTH_LISTENERS, {})[entry.entry_id] = remove_health_listener
+    entry.async_on_unload(coordinator.async_add_listener(_schedule_health_check))
 
     # Store initial status in config entry data if missing
     if CONF_STATUS not in entry.data:
@@ -133,18 +136,6 @@ async def async_unload_entry(
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     if unload_ok:
-        remove_health_listener = hass.data.get(HEALTH_LISTENERS, {}).pop(entry.entry_id, None)
-        if remove_health_listener is not None:
-            remove_health_listener()
-
         await entry.runtime_data.async_shutdown()
-
-        loaded_entries = [
-            config_entry
-            for config_entry in hass.config_entries.async_entries(DOMAIN)
-            if config_entry.entry_id != entry.entry_id and config_entry.state is ConfigEntryState.LOADED
-        ]
-        if not loaded_entries:
-            await async_unload_services(hass)
 
     return unload_ok

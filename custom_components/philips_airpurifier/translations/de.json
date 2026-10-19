@@ -5,8 +5,7 @@
       "already_configured": "Gerät is bereits konfiguriert",
       "model_unsupported": "Modell nicht unterstützt",
       "different_device": "Das Gerät an dieser Adresse ist nicht das ursprüngliche Gerät",
-      "cannot_connect": "Verbindung zum Gerät nicht möglich",
-      "reconfigure_successful": "Neukonfiguration erfolgreich"
+      "cannot_connect": "Verbindung zum Gerät nicht möglich"
     },
     "step": {
       "user": {

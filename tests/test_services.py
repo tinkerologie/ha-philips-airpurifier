@@ -14,7 +14,6 @@ from custom_components.philips_airpurifier.services import (
     _get_coordinator_from_entity_id,
     _reset_filter_counters,
     async_setup_services,
-    async_unload_services,
 )
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
 from homeassistant.core import HomeAssistant
@@ -47,19 +46,56 @@ async def test_get_coordinator_from_entity_id_missing_entity(hass: HomeAssistant
     assert _get_coordinator_from_entity_id(hass, "fan.missing") is None
 
 
-async def test_setup_and_unload_services(hass: HomeAssistant) -> None:
-    """Test service registration and unload are idempotent."""
+async def test_setup_services_idempotent(hass: HomeAssistant) -> None:
+    """Test service registration is idempotent."""
     await async_setup_services(hass)
     await async_setup_services(hass)
 
     assert hass.services.has_service(DOMAIN, SERVICE_FILTER_RESET)
     assert hass.services.has_service(DOMAIN, SERVICE_SET_CHILD_LOCK)
 
-    await async_unload_services(hass)
-    await async_unload_services(hass)
 
-    assert not hass.services.has_service(DOMAIN, SERVICE_FILTER_RESET)
-    assert not hass.services.has_service(DOMAIN, SERVICE_SET_CHILD_LOCK)
+async def test_set_child_lock_service_with_target(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+    mock_coap_client: AsyncMock,
+) -> None:
+    """Test a targeted call passes schema validation and reaches the device."""
+    entity_id = _get_fan_entity_id(hass, init_integration)
+    mock_coap_client.set_control_values.reset_mock()
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_SET_CHILD_LOCK,
+        {"enabled": True},
+        target={"entity_id": entity_id},
+        blocking=True,
+    )
+
+    mock_coap_client.set_control_values.assert_awaited_once_with(data={PhilipsApi.CHILD_LOCK: True})
+
+
+async def test_services_remain_after_last_entry_unloaded(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+) -> None:
+    """Test services stay registered and reject targets of an unloaded entry."""
+    entity_id = _get_fan_entity_id(hass, init_integration)
+
+    await hass.config_entries.async_unload(init_integration.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.services.has_service(DOMAIN, SERVICE_FILTER_RESET)
+    assert hass.services.has_service(DOMAIN, SERVICE_SET_CHILD_LOCK)
+    assert _get_coordinator_from_entity_id(hass, entity_id) is None
+
+    with pytest.raises(ServiceValidationError, match="Invalid target entity"):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SET_CHILD_LOCK,
+            {"entity_id": entity_id, "enabled": True},
+            blocking=True,
+        )
 
 
 async def test_filter_reset_service_calls_reset(

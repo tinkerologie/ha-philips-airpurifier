@@ -47,17 +47,8 @@ async def async_get_config_entry_diagnostics(
     device_registry = dr.async_get(hass)
     entity_registry = er.async_get(hass)
 
-    device_entry = None
-    try:
-        device_entries = dr.async_entries_for_config_entry(device_registry, entry.entry_id)
-        device_entry = device_entries[0] if device_entries else None
-    except AttributeError:
-        devices = getattr(device_registry, "devices", {})
-        device_list = devices.values() if hasattr(devices, "values") else devices
-        for device in device_list:
-            if entry.entry_id in getattr(device, "config_entries", ()):
-                device_entry = device
-                break
+    device_entries = dr.async_entries_for_config_entry(device_registry, entry.entry_id)
+    device_entry = device_entries[0] if device_entries else None
 
     entities = er.async_entries_for_config_entry(entity_registry, entry.entry_id)
 
