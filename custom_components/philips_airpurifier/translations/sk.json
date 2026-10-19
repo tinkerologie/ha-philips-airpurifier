@@ -16,6 +16,13 @@
       },
       "confirm": {
         "description": "Chcete nastaviť {model} {name}?"
+      },
+      "reconfigure": {
+        "title": "Zmeniť konfiguráciu Philips AirPurifier",
+        "description": "Aktualizujte IP adresu alebo názov hostiteľa tohto zariadenia.",
+        "data": {
+          "host": "Meno hostiteľa alebo adresa IP"
+        }
       }
     },
     "error": {
@@ -23,7 +30,351 @@
       "cannot_connect": "Nedá sa pripojiť k zariadeniu"
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Nastavenia watchdogu",
+        "description": "Nastavte, ako dlho sa zariadenie nemusí ozvať, kým sa bude považovať za nedostupné.",
+        "data": {
+          "update_watchdog": "Povoliť watchdog aktualizácií",
+          "missed_package_count": "Prah zmeškaných aktualizácií"
+        },
+        "data_description": {
+          "missed_package_count": "Vyššia hodnota ponechá zariadenia, ktoré sa hlásia zriedka, dlhšie online, kým sa stanú nedostupnými. Hodí sa to pre zariadenia ako AC3039 v pohotovostnom režime."
+        }
+      }
+    }
+  },
+  "entity": {
+    "fan": {
+      "pap": {
+        "state_attributes": {
+          "preset_mode": {
+            "name": "Predvolený režim",
+            "state": {
+              "auto": "Auto",
+              "auto_general": "Auto/Všeobecný",
+              "auto_plus": "Auto+",
+              "bacteria": "Baktérie",
+              "allergen": "Alergény",
+              "gentle": "Jemný",
+              "night": "Noc",
+              "sleep": "Spánok",
+              "sleep_allergy": "Spánok/Alergia",
+              "allergy_sleep": "Alergia/Spánok",
+              "turbo": "Turbo",
+              "medium": "Stredný",
+              "gas": "Plyn",
+              "pollution": "Znečistenie",
+              "low": "Nízky",
+              "high": "Vysoký",
+              "ventilation": "Vetranie",
+              "natural": "Prirodzený",
+              "speed_1": "Rýchlosť 1",
+              "gentle_speed_1": "Jemný/Rýchlosť 1",
+              "speed_2": "Rýchlosť 2",
+              "speed_3": "Rýchlosť 3",
+              "speed_4": "Rýchlosť 4",
+              "speed_5": "Rýchlosť 5",
+              "speed_6": "Rýchlosť 6",
+              "speed_7": "Rýchlosť 7",
+              "speed_8": "Rýchlosť 8",
+              "speed_9": "Rýchlosť 9",
+              "speed_10": "Rýchlosť 10",
+              "speed_11": "Rýchlosť 11",
+              "speed_12": "Rýchlosť 12"
+            }
+          }
+        }
+      }
+    },
+    "humidifier": {
+      "pap": {
+        "state": {
+          "on": "Zapnuté",
+          "off": "Vypnuté"
+        },
+        "state_attributes": {
+          "mode": {
+            "state": {
+              "purification": "Čistenie",
+              "purification_humidification": "Čistenie a zvlhčovanie",
+              "auto": "Auto",
+              "allergen": "Alergény",
+              "sleep": "Spánok",
+              "night": "Noc",
+              "turbo": "Turbo",
+              "high": "Vysoký",
+              "medium": "Stredný",
+              "speed_1": "Rýchlosť 1",
+              "speed_2": "Rýchlosť 2",
+              "speed_3": "Rýchlosť 3"
+            }
+          },
+          "action": {
+            "state": {
+              "off": "Vypnuté",
+              "humidifying": "Zvlhčuje",
+              "idle": "Nečinný"
+            }
+          },
+          "current_humidity": {
+            "name": "Aktuálna vlhkosť"
+          }
+        }
+      }
+    },
+    "climate": {
+      "pap": {
+        "name": "Teplovzdušný ventilátor",
+        "state": {
+          "off": "Vypnuté",
+          "auto": "Auto",
+          "fan_only": "Vetranie",
+          "heat": "Kúrenie"
+        },
+        "state_attributes": {
+          "preset_mode": {
+            "name": "Predvolený režim",
+            "state": {
+              "auto": "Auto",
+              "high": "Vysoký",
+              "medium": "Stredný",
+              "low": "Nízky",
+              "ventilation": "Vetranie"
+            }
+          },
+          "swing_mode": {
+            "name": "Režim oscilácie",
+            "state": {
+              "on": "Zapnuté",
+              "off": "Vypnuté"
+            }
+          },
+          "current_temperature": {
+            "name": "Aktuálna teplota"
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "water_tank": {
+        "name": "Nádrž na vodu",
+        "state": {
+          "on": "Nie je prázdna",
+          "off": "Prázdna"
+        }
+      },
+      "humidification": {
+        "name": "Zvlhčovanie",
+        "state": {
+          "on": "Zapnuté",
+          "off": "Vypnuté"
+        }
+      }
+    },
+    "event": {
+      "notification": {
+        "name": "Upozornenie",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "error": "Chyba",
+              "out_of_water": "Došla voda",
+              "cleared": "Vyriešené"
+            }
+          }
+        }
+      }
+    },
+    "sensor": {
+      "indoor_allergen_index": {
+        "name": "Index vnútorných alergénov"
+      },
+      "pm25": {
+        "name": "PM2.5"
+      },
+      "gas": {
+        "name": "Plyn"
+      },
+      "total_volatile_organic_compounds": {
+        "name": "Celkové prchavé organické látky"
+      },
+      "humidity": {
+        "name": "Vlhkosť"
+      },
+      "time_remaining": {
+        "name": "Zostávajúci čas"
+      },
+      "temperature": {
+        "name": "Teplota"
+      },
+      "water_level": {
+        "name": "Hladina vody"
+      },
+      "rssi": {
+        "name": "RSSI"
+      },
+      "runtime": {
+        "name": "Prevádzková doba"
+      },
+      "speed": {
+        "name": "Rýchlosť"
+      },
+      "pre_filter": {
+        "name": "Predfilter"
+      },
+      "hepa_filter": {
+        "name": "HEPA filter"
+      },
+      "active_carbon_filter": {
+        "name": "Filter s aktívnym uhlím"
+      },
+      "wick": {
+        "name": "Knôt"
+      },
+      "nanoprotect_filter": {
+        "name": "Filter NanoProtect"
+      }
+    },
+    "switch": {
+      "child_lock": {
+        "name": "Detská zámka"
+      },
+      "beep": {
+        "name": "Pípanie"
+      },
+      "standby_sensors": {
+        "name": "Senzory v pohotovostnom režime"
+      },
+      "standby_temperature": {
+        "name": "Zobrazenie teploty v pohotovostnom režime"
+      },
+      "auto_plus": {
+        "name": "Auto plus"
+      },
+      "auto_quickdry_mode": {
+        "name": "Automatický režim rýchleho sušenia"
+      },
+      "quickdry_mode": {
+        "name": "Režim rýchleho sušenia"
+      }
+    },
+    "light": {
+      "display_backlight": {
+        "name": "Podsvietenie displeja"
+      },
+      "light_brightness": {
+        "name": "Jas svetla"
+      }
+    },
+    "select": {
+      "function": {
+        "name": "Funkcia",
+        "state": {
+          "purification": "Čistenie",
+          "purification_humidification": "Čistenie a zvlhčovanie",
+          "fan": "Ventilátor",
+          "circulation": "Cirkulácia",
+          "heating": "Kúrenie"
+        }
+      },
+      "lamp_mode": {
+        "name": "Režim lampy",
+        "state": {
+          "off": "Vypnuté",
+          "air_quality": "Kvalita vzduchu",
+          "ambient_light_mode": "Ambientné",
+          "humidity": "Vlhkosť"
+        }
+      },
+      "ambient_light_mode": {
+        "name": "Režim ambientného svetla",
+        "state": {
+          "off": "Vypnuté",
+          "warm": "Teplé",
+          "dawn": "Úsvit",
+          "calm": "Pokoj",
+          "breath": "Dych"
+        }
+      },
+      "preferred_index": {
+        "name": "Preferovaný index",
+        "state": {
+          "indoor_allergen_index": "Index vnútorných alergénov",
+          "pm25": "PM2.5",
+          "gas_level": "Plyn"
+        }
+      },
+      "fan_mode": {
+        "name": "Režim ventilátora",
+        "state": {
+          "auto": "Auto",
+          "auto_general": "Auto/Všeobecný",
+          "auto_plus": "Auto+",
+          "bacteria": "Baktérie",
+          "allergen": "Alergény",
+          "gentle": "Jemný",
+          "night": "Noc",
+          "sleep": "Spánok",
+          "sleep_allergy": "Spánok/Alergia",
+          "allergy_sleep": "Alergia/Spánok",
+          "turbo": "Turbo",
+          "medium": "Stredný",
+          "gas": "Plyn",
+          "pollution": "Znečistenie",
+          "low": "Nízky",
+          "high": "Vysoký",
+          "ventilation": "Vetranie",
+          "natural": "Prirodzený",
+          "speed_1": "Rýchlosť 1",
+          "gentle_speed_1": "Jemný/Rýchlosť 1",
+          "speed_2": "Rýchlosť 2",
+          "speed_3": "Rýchlosť 3",
+          "speed_4": "Rýchlosť 4",
+          "speed_5": "Rýchlosť 5",
+          "speed_6": "Rýchlosť 6",
+          "speed_7": "Rýchlosť 7",
+          "speed_8": "Rýchlosť 8",
+          "speed_9": "Rýchlosť 9",
+          "speed_10": "Rýchlosť 10",
+          "speed_11": "Rýchlosť 11",
+          "speed_12": "Rýchlosť 12"
+        }
+      },
+      "timer": {
+        "name": "Časovač",
+        "state": {
+          "off": "Vypnuté",
+          "on": "Zapnuté"
+        }
+      }
+    },
+    "number": {
+      "oscillation": {
+        "name": "Oscilácia"
+      },
+      "target_temperature": {
+        "name": "Cieľová teplota"
+      },
+      "humidity_target": {
+        "name": "Cieľová vlhkosť"
+      }
+    }
+  },
   "exceptions": {
+    "no_target_entities": {
+      "message": "Neboli zadané žiadne cieľové entity"
+    },
+    "invalid_target_entity": {
+      "message": "Neplatná cieľová entita: {entity_id}"
+    },
+    "filter_reset_failed": {
+      "message": "Resetovanie filtra pre {entity_id} zlyhalo"
+    },
+    "set_child_lock_failed": {
+      "message": "Nastavenie detskej zámky pre {entity_id} zlyhalo"
+    },
     "cannot_connect": {
       "message": "Nepodarilo sa pripojiť k zariadeniu na adrese {host}"
     },
@@ -35,6 +386,54 @@
     },
     "unknown_filter_type": {
       "message": "Neznámy typ filtra: {filter_type}"
+    }
+  },
+  "issues": {
+    "connectivity_issue": {
+      "title": "Problém s pripojením čističky vzduchu",
+      "description": "Vaša čistička vzduchu neodpovedá na sieťové požiadavky. Príčinou môžu byť problémy so sieťovým pripojením, stav napájania zariadenia alebo zmenená IP adresa. Spustite opravu a skúste problém vyriešiť automaticky."
+    },
+    "entity_registry_cleanup": {
+      "title": "Vyžaduje sa vyčistenie registra entít",
+      "description": "V registri entít sa našli osirelé alebo duplicitné entity. Môže sa to stať po zmene konfigurácie zariadenia alebo po aktualizácii integrácie. Spustite opravu a entity sa automaticky vyčistia."
+    },
+    "filter_replacement_warning": {
+      "title": "Vyžaduje sa výmena filtra",
+      "description": "Jeden alebo viac filtrov vašej čističky vzduchu vyžaduje pozornosť. Na senzoroch stavu filtrov skontrolujte, či je potrebná výmena alebo čistenie. Spustite opravu a potvrďte toto upozornenie."
+    },
+    "configuration_migration": {
+      "title": "Vyžaduje sa migrácia konfigurácie",
+      "description": "Konfiguráciu integrácie je potrebné aktualizovať, aby podporovala nové funkcie. Táto migrácia aktualizuje vašu konfiguráciu automaticky bez straty akýchkoľvek nastavení."
+    },
+    "duplicate_entities": {
+      "title": "Zistili sa duplicitné entity",
+      "description": "Zistili sa duplicitné entity. Zvyčajne sa to stane, keď sú jedinečné ID entít v konflikte. Spustite opravu a duplicitné entity sa automaticky odstránia."
+    }
+  },
+  "services": {
+    "filter_reset": {
+      "name": "Resetovať životnosť filtra",
+      "description": "Resetuje počítadlá životnosti filtrov a plány údržby zadanej čističky vzduchu.",
+      "fields": {
+        "filter_type": {
+          "name": "Typ filtra",
+          "description": "Typ filtra, ktorý sa má resetovať (all, pre_filter, hepa_filter, active_carbon_filter, nanoprotect_filter)"
+        },
+        "reset_maintenance_schedule": {
+          "name": "Resetovať plán údržby",
+          "description": "Či sa má resetovať plán pripomienok údržby"
+        }
+      }
+    },
+    "set_child_lock": {
+      "name": "Nastaviť detskú zámku",
+      "description": "Zapne alebo vypne detskú zámku čističky vzduchu.",
+      "fields": {
+        "enabled": {
+          "name": "Zapnuté",
+          "description": "Či sa má detská zámka zapnúť alebo vypnúť"
+        }
+      }
     }
   }
 }

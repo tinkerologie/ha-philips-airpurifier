@@ -18,6 +18,7 @@ from homeassistant.helpers.typing import ConfigType
 from .client import async_create_client
 from .const import (
     CONF_DEVICE_ID,
+    CONF_LAST_NUDGE_VALUES,
     CONF_MAC,
     CONF_MISSED_PACKAGE_COUNT,
     CONF_MODEL,
@@ -100,6 +101,7 @@ async def async_setup_entry(
         update_watchdog_enabled=entry.options.get(CONF_UPDATE_WATCHDOG, True),
         missed_package_count_override=entry.options.get(CONF_MISSED_PACKAGE_COUNT),
         config_entry=entry,
+        last_nudge_values=entry.data.get(CONF_LAST_NUDGE_VALUES),
     )
 
     if not entry.options.get(CONF_UPDATE_WATCHDOG, True) and CONF_STATUS in entry.data:
@@ -121,11 +123,36 @@ async def async_setup_entry(
         new_data = {**entry.data, CONF_STATUS: coordinator.data}
         hass.config_entries.async_update_entry(entry, data=new_data)
 
+    if coordinator.model_config.status_nudge:
+
+        def _persist_nudge_values() -> None:
+            _persist_nudge_resting_values(hass, entry, coordinator)
+
+        # Capture any push that arrived during setup, then follow changes.
+        _persist_nudge_values()
+        entry.async_on_unload(coordinator.async_add_listener(_persist_nudge_values))
+
     entry.runtime_data = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
+
+
+def _persist_nudge_resting_values(
+    hass: HomeAssistant,
+    entry: PhilipsAirPurifierConfigEntry,
+    coordinator: PhilipsAirPurifierCoordinator,
+) -> None:
+    """Save the nudge keys' last resting values when they change.
+
+    Push-only models restore these on the first nudge after a restart, when
+    there is no live status yet, so the nudge doesn't override the user's
+    display setting.
+    """
+    values = coordinator.nudge_resting_values
+    if values != (entry.data.get(CONF_LAST_NUDGE_VALUES) or {}):
+        hass.config_entries.async_update_entry(entry, data={**entry.data, CONF_LAST_NUDGE_VALUES: values})
 
 
 async def async_unload_entry(

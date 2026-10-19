@@ -16,6 +16,13 @@
       },
       "confirm": {
         "description": "Doriți să configurați {model} {name}?"
+      },
+      "reconfigure": {
+        "title": "Reconfigurare Philips AirPurifier",
+        "description": "Actualizați adresa IP sau numele de gazdă al acestui dispozitiv.",
+        "data": {
+          "host": "Numele de gazdă sau adresa IP a dispozitivului"
+        }
       }
     },
     "error": {
@@ -23,7 +30,351 @@
       "cannot_connect": "Nu se poate conecta la dispozitiv"
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Setări watchdog",
+        "description": "Stabiliți cât timp poate un dispozitiv să nu raporteze nimic înainte de a fi considerat indisponibil.",
+        "data": {
+          "update_watchdog": "Activare watchdog pentru actualizări",
+          "missed_package_count": "Prag de actualizări ratate"
+        },
+        "data_description": {
+          "missed_package_count": "O valoare mai mare menține online mai mult timp dispozitivele care raportează rar, înainte ca acestea să devină indisponibile. Este util pentru dispozitive precum AC3039 în modul standby."
+        }
+      }
+    }
+  },
+  "entity": {
+    "fan": {
+      "pap": {
+        "state_attributes": {
+          "preset_mode": {
+            "name": "Mod presetat",
+            "state": {
+              "auto": "Auto",
+              "auto_general": "Auto/General",
+              "auto_plus": "Auto+",
+              "bacteria": "Bacterii",
+              "allergen": "Alergeni",
+              "gentle": "Delicat",
+              "night": "Noapte",
+              "sleep": "Somn",
+              "sleep_allergy": "Somn/Alergii",
+              "allergy_sleep": "Alergii/Somn",
+              "turbo": "Turbo",
+              "medium": "Mediu",
+              "gas": "Gaz",
+              "pollution": "Poluare",
+              "low": "Scăzut",
+              "high": "Ridicat",
+              "ventilation": "Ventilație",
+              "natural": "Natural",
+              "speed_1": "Viteza 1",
+              "gentle_speed_1": "Delicat/Viteza 1",
+              "speed_2": "Viteza 2",
+              "speed_3": "Viteza 3",
+              "speed_4": "Viteza 4",
+              "speed_5": "Viteza 5",
+              "speed_6": "Viteza 6",
+              "speed_7": "Viteza 7",
+              "speed_8": "Viteza 8",
+              "speed_9": "Viteza 9",
+              "speed_10": "Viteza 10",
+              "speed_11": "Viteza 11",
+              "speed_12": "Viteza 12"
+            }
+          }
+        }
+      }
+    },
+    "humidifier": {
+      "pap": {
+        "state": {
+          "on": "Pornit",
+          "off": "Oprit"
+        },
+        "state_attributes": {
+          "mode": {
+            "state": {
+              "purification": "Purificare",
+              "purification_humidification": "Purificare și umidificare",
+              "auto": "Auto",
+              "allergen": "Alergeni",
+              "sleep": "Somn",
+              "night": "Noapte",
+              "turbo": "Turbo",
+              "high": "Ridicat",
+              "medium": "Mediu",
+              "speed_1": "Viteza 1",
+              "speed_2": "Viteza 2",
+              "speed_3": "Viteza 3"
+            }
+          },
+          "action": {
+            "state": {
+              "off": "Oprit",
+              "humidifying": "Umidificare",
+              "idle": "Inactiv"
+            }
+          },
+          "current_humidity": {
+            "name": "Umiditate curentă"
+          }
+        }
+      }
+    },
+    "climate": {
+      "pap": {
+        "name": "Aerotermă",
+        "state": {
+          "off": "Oprit",
+          "auto": "Auto",
+          "fan_only": "Ventilație",
+          "heat": "Încălzire"
+        },
+        "state_attributes": {
+          "preset_mode": {
+            "name": "Mod presetat",
+            "state": {
+              "auto": "Auto",
+              "high": "Ridicat",
+              "medium": "Mediu",
+              "low": "Scăzut",
+              "ventilation": "Ventilație"
+            }
+          },
+          "swing_mode": {
+            "name": "Mod oscilare",
+            "state": {
+              "on": "Pornit",
+              "off": "Oprit"
+            }
+          },
+          "current_temperature": {
+            "name": "Temperatură curentă"
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "water_tank": {
+        "name": "Rezervor de apă",
+        "state": {
+          "on": "Nu este gol",
+          "off": "Gol"
+        }
+      },
+      "humidification": {
+        "name": "Umidificare",
+        "state": {
+          "on": "Pornit",
+          "off": "Oprit"
+        }
+      }
+    },
+    "event": {
+      "notification": {
+        "name": "Notificare",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "error": "Eroare",
+              "out_of_water": "Fără apă",
+              "cleared": "Rezolvat"
+            }
+          }
+        }
+      }
+    },
+    "sensor": {
+      "indoor_allergen_index": {
+        "name": "Indice de alergeni din interior"
+      },
+      "pm25": {
+        "name": "PM2.5"
+      },
+      "gas": {
+        "name": "Gaz"
+      },
+      "total_volatile_organic_compounds": {
+        "name": "Compuși organici volatili totali"
+      },
+      "humidity": {
+        "name": "Umiditate"
+      },
+      "time_remaining": {
+        "name": "Timp rămas"
+      },
+      "temperature": {
+        "name": "Temperatură"
+      },
+      "water_level": {
+        "name": "Nivelul apei"
+      },
+      "rssi": {
+        "name": "RSSI"
+      },
+      "runtime": {
+        "name": "Timp de funcționare"
+      },
+      "speed": {
+        "name": "Viteză"
+      },
+      "pre_filter": {
+        "name": "Prefiltru"
+      },
+      "hepa_filter": {
+        "name": "Filtru HEPA"
+      },
+      "active_carbon_filter": {
+        "name": "Filtru cu cărbune activ"
+      },
+      "wick": {
+        "name": "Fitil"
+      },
+      "nanoprotect_filter": {
+        "name": "Filtru NanoProtect"
+      }
+    },
+    "switch": {
+      "child_lock": {
+        "name": "Blocare pentru copii"
+      },
+      "beep": {
+        "name": "Semnal sonor"
+      },
+      "standby_sensors": {
+        "name": "Senzori în standby"
+      },
+      "standby_temperature": {
+        "name": "Afișare temperatură în standby"
+      },
+      "auto_plus": {
+        "name": "Auto plus"
+      },
+      "auto_quickdry_mode": {
+        "name": "Mod uscare rapidă automată"
+      },
+      "quickdry_mode": {
+        "name": "Mod uscare rapidă"
+      }
+    },
+    "light": {
+      "display_backlight": {
+        "name": "Iluminare de fundal afișaj"
+      },
+      "light_brightness": {
+        "name": "Luminozitate lumină"
+      }
+    },
+    "select": {
+      "function": {
+        "name": "Funcție",
+        "state": {
+          "purification": "Purificare",
+          "purification_humidification": "Purificare și umidificare",
+          "fan": "Ventilator",
+          "circulation": "Circulație",
+          "heating": "Încălzire"
+        }
+      },
+      "lamp_mode": {
+        "name": "Mod lampă",
+        "state": {
+          "off": "Oprit",
+          "air_quality": "Calitatea aerului",
+          "ambient_light_mode": "Ambiental",
+          "humidity": "Umiditate"
+        }
+      },
+      "ambient_light_mode": {
+        "name": "Mod lumină ambientală",
+        "state": {
+          "off": "Oprit",
+          "warm": "Cald",
+          "dawn": "Zori",
+          "calm": "Calm",
+          "breath": "Respirație"
+        }
+      },
+      "preferred_index": {
+        "name": "Indice preferat",
+        "state": {
+          "indoor_allergen_index": "Indice de alergeni din interior",
+          "pm25": "PM2.5",
+          "gas_level": "Gaz"
+        }
+      },
+      "fan_mode": {
+        "name": "Mod ventilator",
+        "state": {
+          "auto": "Auto",
+          "auto_general": "Auto/General",
+          "auto_plus": "Auto+",
+          "bacteria": "Bacterii",
+          "allergen": "Alergeni",
+          "gentle": "Delicat",
+          "night": "Noapte",
+          "sleep": "Somn",
+          "sleep_allergy": "Somn/Alergii",
+          "allergy_sleep": "Alergii/Somn",
+          "turbo": "Turbo",
+          "medium": "Mediu",
+          "gas": "Gaz",
+          "pollution": "Poluare",
+          "low": "Scăzut",
+          "high": "Ridicat",
+          "ventilation": "Ventilație",
+          "natural": "Natural",
+          "speed_1": "Viteza 1",
+          "gentle_speed_1": "Delicat/Viteza 1",
+          "speed_2": "Viteza 2",
+          "speed_3": "Viteza 3",
+          "speed_4": "Viteza 4",
+          "speed_5": "Viteza 5",
+          "speed_6": "Viteza 6",
+          "speed_7": "Viteza 7",
+          "speed_8": "Viteza 8",
+          "speed_9": "Viteza 9",
+          "speed_10": "Viteza 10",
+          "speed_11": "Viteza 11",
+          "speed_12": "Viteza 12"
+        }
+      },
+      "timer": {
+        "name": "Temporizator",
+        "state": {
+          "off": "Oprit",
+          "on": "Pornit"
+        }
+      }
+    },
+    "number": {
+      "oscillation": {
+        "name": "Oscilare"
+      },
+      "target_temperature": {
+        "name": "Temperatură țintă"
+      },
+      "humidity_target": {
+        "name": "Umiditate țintă"
+      }
+    }
+  },
   "exceptions": {
+    "no_target_entities": {
+      "message": "Nu a fost specificată nicio entitate țintă"
+    },
+    "invalid_target_entity": {
+      "message": "Entitate țintă invalidă: {entity_id}"
+    },
+    "filter_reset_failed": {
+      "message": "Resetarea filtrului a eșuat pentru {entity_id}"
+    },
+    "set_child_lock_failed": {
+      "message": "Setarea blocării pentru copii a eșuat pentru {entity_id}"
+    },
     "cannot_connect": {
       "message": "Conectarea la dispozitivul de la {host} a eșuat"
     },
@@ -35,6 +386,54 @@
     },
     "unknown_filter_type": {
       "message": "Tip de filtru necunoscut: {filter_type}"
+    }
+  },
+  "issues": {
+    "connectivity_issue": {
+      "title": "Problemă de conectivitate a purificatorului de aer",
+      "description": "Purificatorul de aer nu răspunde la solicitările din rețea. Cauza poate fi o problemă de conectivitate la rețea, starea de alimentare a dispozitivului sau o adresă IP schimbată. Porniți remedierea pentru a încerca rezolvarea automată a problemei."
+    },
+    "entity_registry_cleanup": {
+      "title": "Este necesară curățarea registrului de entități",
+      "description": "Au fost detectate entități orfane sau duplicate în registrul de entități. Acest lucru se poate întâmpla după reconfigurarea dispozitivului sau după actualizarea integrării. Porniți remedierea pentru a le curăța automat."
+    },
+    "filter_replacement_warning": {
+      "title": "Este necesară înlocuirea filtrului",
+      "description": "Unul sau mai multe filtre ale purificatorului de aer necesită atenție. Verificați senzorii de stare a filtrelor pentru a vedea dacă este necesară înlocuirea sau curățarea acestora. Porniți remedierea pentru a confirma acest avertisment."
+    },
+    "configuration_migration": {
+      "title": "Este necesară migrarea configurației",
+      "description": "Configurația integrării trebuie actualizată pentru a accepta funcții noi. Această migrare vă va actualiza configurația automat, fără a pierde nicio setare."
+    },
+    "duplicate_entities": {
+      "title": "Au fost detectate entități duplicate",
+      "description": "Au fost detectate entități duplicate. De obicei, acest lucru se întâmplă atunci când ID-urile unice ale entităților intră în conflict. Porniți remedierea pentru a elimina automat entitățile duplicate."
+    }
+  },
+  "services": {
+    "filter_reset": {
+      "name": "Resetare durată de viață filtru",
+      "description": "Resetează contoarele duratei de viață a filtrelor și programele de întreținere ale purificatorului de aer specificat.",
+      "fields": {
+        "filter_type": {
+          "name": "Tip filtru",
+          "description": "Tipul de filtru care se resetează (all, pre_filter, hepa_filter, active_carbon_filter, nanoprotect_filter)"
+        },
+        "reset_maintenance_schedule": {
+          "name": "Resetare program de întreținere",
+          "description": "Dacă se resetează programul mementourilor de întreținere"
+        }
+      }
+    },
+    "set_child_lock": {
+      "name": "Setare blocare pentru copii",
+      "description": "Activează sau dezactivează blocarea pentru copii a purificatorului de aer.",
+      "fields": {
+        "enabled": {
+          "name": "Activat",
+          "description": "Dacă blocarea pentru copii trebuie activată sau dezactivată"
+        }
+      }
     }
   }
 }
