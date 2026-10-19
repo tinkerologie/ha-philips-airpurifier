@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 import contextlib
 import logging
 from typing import TYPE_CHECKING, Any
@@ -67,6 +68,7 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         missed_package_count: int | None = None,
         *,
         config_entry: ConfigEntry | None = None,
+        last_nudge_values: Mapping[str, Any] | None = None,
     ) -> None:
         """Initialize the coordinator."""
         super().__init__(
@@ -77,12 +79,20 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self.client = client
         self.host = host
+        # Must be set before model_config / _nudge_keys are read below.
         self.device_info = device_info
 
         if missed_package_count is not None and missed_package_count_override is None:
             missed_package_count_override = missed_package_count
 
         self._status_nudge_enabled = bool(getattr(self.model_config, "status_nudge", None))
+        # Last resting value the device reported for each nudge key, persisted
+        # across restarts so the first nudge restores the user's setting.
+        self._nudge_resting_values: dict[str, Any] = {}
+        if isinstance(last_nudge_values, Mapping):
+            self._nudge_resting_values = {
+                key: value for key, value in last_nudge_values.items() if key in self._nudge_keys and value is not None
+            }
         self._missed_package_count_override = missed_package_count_override
 
         self._update_watchdog_enabled = update_watchdog_enabled
@@ -187,6 +197,27 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 translation_placeholders={"host": self.host},
             ) from err
 
+    @property
+    def _nudge_keys(self) -> set[str]:
+        """Return the wire keys (without "#N" suffix) the status nudge writes."""
+        return {key.partition("#")[0] for key, _ in self.model_config.status_nudge or []}
+
+    @property
+    def nudge_resting_values(self) -> dict[str, Any]:
+        """Return the last observed resting value of each nudge key."""
+        return dict(self._nudge_resting_values)
+
+    def _record_nudge_resting_values(self, status: Mapping[str, Any]) -> None:
+        """Remember nudge-key values from an ordinary status push.
+
+        Only the persistent observe stream reports the device's real resting
+        state; nudge snapshots can carry the transient write, so they must not
+        update this map.
+        """
+        for key in self._nudge_keys:
+            if status.get(key) is not None:
+                self._nudge_resting_values[key] = status[key]
+
     def _build_status_nudge(self) -> list[tuple[str, Any]]:
         """Build the nudge write sequence for a push-on-change device.
 
@@ -214,9 +245,12 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         transient = base[0][1]
         resting = base[-1][1]
 
-        # Restore the user's last-known value for the nudged key when we have it.
+        # Restore the user's last-known value for the nudged key when we have
+        # it: live status first, then the value persisted across restarts.
         if self.data and self.data.get(key) is not None:
             resting = self.data[key]
+        elif key in self._nudge_resting_values:
+            resting = self._nudge_resting_values[key]
 
         # The transient write must differ from the resting value, otherwise the
         # device sees no change and never pushes. The model's two values differ,
@@ -298,6 +332,7 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             async for status in self.client.observe_status():
                 self._last_update = asyncio.get_event_loop().time()
                 self._mark_available()
+                self._record_nudge_resting_values(status)
                 self.async_set_updated_data(status)
         except asyncio.CancelledError:
             raise

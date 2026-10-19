@@ -1047,3 +1047,86 @@ async def test_schedule_reconnect_retry_lifecycle(hass: HomeAssistant) -> None:
     ):
         await coordinator._async_retry_reconnect(5)
         mock_reconnect.assert_awaited_once()
+
+
+@pytest.mark.unit
+def test_build_status_nudge_uses_persisted_value_without_data(hass: HomeAssistant) -> None:
+    """After a restart the nudge ends on the persisted resting value, not the default."""
+    coordinator = PhilipsAirPurifierCoordinator(
+        hass,
+        AsyncMock(),
+        TEST_HOST,
+        DeviceInformation(model="CX7550", name=TEST_NAME, device_id=TEST_DEVICE_ID, host=TEST_HOST),
+        last_nudge_values={"D03105": 0},
+    )
+
+    assert coordinator._build_status_nudge() == [("D03105", 115), ("D03105", 0)]
+
+
+@pytest.mark.unit
+def test_build_status_nudge_live_data_beats_persisted_value(hass: HomeAssistant) -> None:
+    """Live status wins over the value persisted from an earlier run."""
+    coordinator = PhilipsAirPurifierCoordinator(
+        hass,
+        AsyncMock(),
+        TEST_HOST,
+        DeviceInformation(model="CX7550", name=TEST_NAME, device_id=TEST_DEVICE_ID, host=TEST_HOST),
+        last_nudge_values={"D03105": 0},
+    )
+    coordinator.async_set_updated_data({**_CX_STATUS, "D03105": 123})
+
+    assert coordinator._build_status_nudge() == [("D03105", 0), ("D03105", 123)]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("persisted", "expected"),
+    [
+        ({"D03105": 0, "D03102": 1, "D0312D": None}, {"D03105": 0}),
+        ({"D03105": None}, {}),
+        (["D03105", 0], {}),
+        (None, {}),
+    ],
+)
+def test_persisted_nudge_values_are_filtered(hass: HomeAssistant, persisted: object, expected: dict) -> None:
+    """Only non-None values of the model's own nudge keys are kept."""
+    coordinator = PhilipsAirPurifierCoordinator(
+        hass,
+        AsyncMock(),
+        TEST_HOST,
+        DeviceInformation(model="CX7550", name=TEST_NAME, device_id=TEST_DEVICE_ID, host=TEST_HOST),
+        last_nudge_values=persisted,  # type: ignore[arg-type]
+    )
+
+    assert coordinator.nudge_resting_values == expected
+
+
+@pytest.mark.unit
+async def test_observe_stream_records_nudge_resting_values(hass: HomeAssistant) -> None:
+    """Ordinary pushes update the resting values; pushes without the key keep them."""
+
+    async def stream():
+        yield {**_CX_STATUS, "D03105": 0}
+        yield {"D03102": 0}
+
+    client = MagicMock()
+    client.observe_status = MagicMock(return_value=stream())
+    coordinator = _make_coordinator(hass, model="CX7550", client=client)
+
+    def _fake_create_task(coro, *_args, **_kwargs):
+        coro.close()
+        return MagicMock()
+
+    with patch.object(hass, "async_create_background_task", side_effect=_fake_create_task):
+        await coordinator._async_observe_status()
+
+    assert coordinator.nudge_resting_values == {"D03105": 0}
+
+
+@pytest.mark.unit
+def test_nudge_snapshot_does_not_record_resting_value(hass: HomeAssistant) -> None:
+    """A status published outside the observe stream (e.g. a nudge snapshot) is ignored."""
+    coordinator = _make_coordinator(hass, model="CX7550")
+    coordinator.async_set_updated_data({**_CX_STATUS, "D03105": 115})
+
+    assert coordinator.nudge_resting_values == {}

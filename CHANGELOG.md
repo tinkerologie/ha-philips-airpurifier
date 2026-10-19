@@ -7,6 +7,11 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 
 ## [Unreleased]
 
+### Fixed
+
+- Push-only models (CX7550, HU1509/HU1510/HU4209, AMF870) no longer switch the display back on after a Home Assistant restart. The integration now remembers the display backlight value the device last reported and ends the first nudge after a restart on that value instead of the model default. The value is stored with the config entry (`last_nudge_values`) and only updated from real status pushes, never from the nudge's own temporary write (#155).
+- Translations: Bulgarian, German, Dutch, Romanian and Slovak now cover every string the English translation has (config, options, entities, repairs, actions and error messages); Romanian and Slovak previously only translated the setup dialog. The preferred-index "Gas" option and the fan-mode "Allergy/Sleep" option now show their translated names (the translation keys didn't match the runtime option values). A new test fails CI when a locale is missing a key, has an extra key, or changes a placeholder (#158).
+
 ## [2026.10.1] - 2026-10-19
 
 ### Changed

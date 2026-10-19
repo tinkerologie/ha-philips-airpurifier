@@ -16,11 +16,33 @@
       },
       "confirm": {
         "description": "Wil je {model} {name} instellen?"
+      },
+      "reconfigure": {
+        "title": "Philips luchtreiniger opnieuw configureren",
+        "description": "Werk het IP-adres of de hostnaam van dit apparaat bij.",
+        "data": {
+          "host": "Hostnaam of IP-adres van apparaat"
+        }
       }
     },
     "error": {
       "invalid_host": "Ongeldige hostnaam of IP-adres",
       "cannot_connect": "Kan geen verbinding maken met het apparaat"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Watchdog-instellingen",
+        "description": "Stel in hoe lang een apparaat niets mag melden voordat het als niet beschikbaar wordt beschouwd.",
+        "data": {
+          "update_watchdog": "Update-watchdog inschakelen",
+          "missed_package_count": "Drempel voor gemiste updates"
+        },
+        "data_description": {
+          "missed_package_count": "Met een hogere waarde blijven apparaten die weinig melden langer online voordat ze niet beschikbaar worden. Dit is handig voor apparaten zoals de AC3039 in stand-by."
+        }
+      }
     }
   },
   "entity": {
@@ -39,6 +61,7 @@
               "night": "Nacht",
               "sleep": "Slaap",
               "sleep_allergy": "Slaap/Allergie",
+              "allergy_sleep": "Allergie/Slaap",
               "turbo": "Turbo",
               "medium": "Gemiddeld",
               "gas": "Gas",
@@ -59,8 +82,7 @@
               "speed_9": "Snelheid 9",
               "speed_10": "Snelheid 10",
               "speed_11": "Snelheid 11",
-              "speed_12": "Snelheid 12",
-              "allergy_sleep": "Allergie/Slaap"
+              "speed_12": "Snelheid 12"
             }
           }
         }
@@ -102,6 +124,39 @@
         }
       }
     },
+    "climate": {
+      "pap": {
+        "name": "Ventilatorkachel",
+        "state": {
+          "off": "Uit",
+          "auto": "Auto",
+          "fan_only": "Ventilatie",
+          "heat": "Verwarmen"
+        },
+        "state_attributes": {
+          "preset_mode": {
+            "name": "Voorinstelling",
+            "state": {
+              "auto": "Auto",
+              "high": "Hoog",
+              "medium": "Gemiddeld",
+              "low": "Laag",
+              "ventilation": "Ventilatie"
+            }
+          },
+          "swing_mode": {
+            "name": "Zwenkmodus",
+            "state": {
+              "on": "Aan",
+              "off": "Uit"
+            }
+          },
+          "current_temperature": {
+            "name": "Huidige temperatuur"
+          }
+        }
+      }
+    },
     "binary_sensor": {
       "water_tank": {
         "name": "Watertank",
@@ -115,6 +170,20 @@
         "state": {
           "on": "Aan",
           "off": "Uit"
+        }
+      }
+    },
+    "event": {
+      "notification": {
+        "name": "Melding",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "error": "Fout",
+              "out_of_water": "Water op",
+              "cleared": "Opgelost"
+            }
+          }
         }
       }
     },
@@ -145,6 +214,12 @@
       },
       "rssi": {
         "name": "RSSI"
+      },
+      "runtime": {
+        "name": "Bedrijfstijd"
+      },
+      "speed": {
+        "name": "Snelheid"
       },
       "pre_filter": {
         "name": "Voorfilter"
@@ -228,7 +303,43 @@
         "state": {
           "indoor_allergen_index": "Binnen allergie-index",
           "pm25": "PM2.5",
-          "gas": "Gas"
+          "gas_level": "Gas"
+        }
+      },
+      "fan_mode": {
+        "name": "Ventilatormodus",
+        "state": {
+          "auto": "Auto",
+          "auto_general": "Auto/Algemeen",
+          "auto_plus": "Auto+",
+          "bacteria": "Bacteriën",
+          "allergen": "Allergeen",
+          "gentle": "Zacht",
+          "night": "Nacht",
+          "sleep": "Slaap",
+          "sleep_allergy": "Slaap/Allergie",
+          "allergy_sleep": "Allergie/Slaap",
+          "turbo": "Turbo",
+          "medium": "Gemiddeld",
+          "gas": "Gas",
+          "pollution": "Vervuiling",
+          "low": "Laag",
+          "high": "Hoog",
+          "ventilation": "Ventilatie",
+          "natural": "Natuurlijk",
+          "speed_1": "Snelheid 1",
+          "gentle_speed_1": "Zacht/Snelheid 1",
+          "speed_2": "Snelheid 2",
+          "speed_3": "Snelheid 3",
+          "speed_4": "Snelheid 4",
+          "speed_5": "Snelheid 5",
+          "speed_6": "Snelheid 6",
+          "speed_7": "Snelheid 7",
+          "speed_8": "Snelheid 8",
+          "speed_9": "Snelheid 9",
+          "speed_10": "Snelheid 10",
+          "speed_11": "Snelheid 11",
+          "speed_12": "Snelheid 12"
         }
       },
       "timer": {
@@ -245,10 +356,25 @@
       },
       "target_temperature": {
         "name": "Doeltemperatuur"
+      },
+      "humidity_target": {
+        "name": "Doelluchtvochtigheid"
       }
     }
   },
   "exceptions": {
+    "no_target_entities": {
+      "message": "Geen doelentiteiten opgegeven"
+    },
+    "invalid_target_entity": {
+      "message": "Ongeldige doelentiteit: {entity_id}"
+    },
+    "filter_reset_failed": {
+      "message": "Filter resetten mislukt voor {entity_id}"
+    },
+    "set_child_lock_failed": {
+      "message": "Kinderslot instellen mislukt voor {entity_id}"
+    },
     "cannot_connect": {
       "message": "Kan geen verbinding maken met het apparaat op {host}"
     },
@@ -260,6 +386,54 @@
     },
     "unknown_filter_type": {
       "message": "Onbekend filtertype: {filter_type}"
+    }
+  },
+  "issues": {
+    "connectivity_issue": {
+      "title": "Verbindingsprobleem met luchtreiniger",
+      "description": "Je luchtreiniger reageert niet op netwerkverzoeken. Dit kan komen door netwerkproblemen, de stroomstatus van het apparaat of een gewijzigd IP-adres. Start de reparatie om te proberen het probleem automatisch op te lossen."
+    },
+    "entity_registry_cleanup": {
+      "title": "Opschonen van entiteitenregister vereist",
+      "description": "Er zijn verweesde of dubbele entiteiten gevonden in het entiteitenregister. Dit kan gebeuren nadat een apparaat opnieuw is geconfigureerd of de integratie is bijgewerkt. Start de reparatie om ze automatisch op te schonen."
+    },
+    "filter_replacement_warning": {
+      "title": "Filter moet worden vervangen",
+      "description": "Een of meer filters van je luchtreiniger hebben aandacht nodig. Controleer de filterstatussensoren om te zien of een filter vervangen of gereinigd moet worden. Start de reparatie om deze waarschuwing te bevestigen."
+    },
+    "configuration_migration": {
+      "title": "Migratie van configuratie vereist",
+      "description": "De configuratie van de integratie moet worden bijgewerkt om nieuwe functies te ondersteunen. Deze migratie werkt je configuratie automatisch bij zonder dat er instellingen verloren gaan."
+    },
+    "duplicate_entities": {
+      "title": "Dubbele entiteiten gedetecteerd",
+      "description": "Er zijn dubbele entiteiten gedetecteerd. Dit gebeurt meestal wanneer de unieke ID’s van entiteiten met elkaar conflicteren. Start de reparatie om dubbele entiteiten automatisch te verwijderen."
+    }
+  },
+  "services": {
+    "filter_reset": {
+      "name": "Filterlevensduur resetten",
+      "description": "Reset de tellers voor de filterlevensduur en het onderhoudsschema van de opgegeven luchtreiniger.",
+      "fields": {
+        "filter_type": {
+          "name": "Filtertype",
+          "description": "Type filter dat gereset moet worden (all, pre_filter, hepa_filter, active_carbon_filter, nanoprotect_filter)"
+        },
+        "reset_maintenance_schedule": {
+          "name": "Onderhoudsschema resetten",
+          "description": "Of het schema voor onderhoudsherinneringen gereset moet worden"
+        }
+      }
+    },
+    "set_child_lock": {
+      "name": "Kinderslot instellen",
+      "description": "Schakel het kinderslot van de luchtreiniger in of uit.",
+      "fields": {
+        "enabled": {
+          "name": "Ingeschakeld",
+          "description": "Of het kinderslot in- of uitgeschakeld moet worden"
+        }
+      }
     }
   }
 }

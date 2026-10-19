@@ -2,7 +2,7 @@
   "title": "Philips AirPurifier",
   "config": {
     "abort": {
-      "already_configured": "Gerät is bereits konfiguriert",
+      "already_configured": "Gerät ist bereits konfiguriert",
       "model_unsupported": "Modell nicht unterstützt",
       "different_device": "Das Gerät an dieser Adresse ist nicht das ursprüngliche Gerät",
       "cannot_connect": "Verbindung zum Gerät nicht möglich"
@@ -11,11 +11,18 @@
       "user": {
         "title": "Neuer Philips AirPurifier",
         "data": {
-          "host": "Host Name des Geräts oder IP Addresse"
+          "host": "Hostname oder IP-Adresse des Geräts"
         }
       },
       "confirm": {
         "description": "Modell {model} {name} einrichten?"
+      },
+      "reconfigure": {
+        "title": "Philips AirPurifier neu konfigurieren",
+        "description": "Aktualisieren Sie die IP-Adresse oder den Hostnamen dieses Geräts.",
+        "data": {
+          "host": "Hostname oder IP-Adresse des Geräts"
+        }
       }
     },
     "error": {
@@ -166,6 +173,20 @@
         }
       }
     },
+    "event": {
+      "notification": {
+        "name": "Benachrichtigung",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "error": "Fehler",
+              "out_of_water": "Wassermangel",
+              "cleared": "Behoben"
+            }
+          }
+        }
+      }
+    },
     "sensor": {
       "indoor_allergen_index": {
         "name": "Innenraum Allergie Index"
@@ -193,6 +214,12 @@
       },
       "rssi": {
         "name": "RSSI"
+      },
+      "runtime": {
+        "name": "Betriebszeit"
+      },
+      "speed": {
+        "name": "Geschwindigkeit"
       },
       "pre_filter": {
         "name": "Vorfilter"
@@ -258,7 +285,7 @@
           "off": "Aus",
           "air_quality": "Luftqualität",
           "ambient_light_mode": "Ambiente",
-          "humidity": "Lufteuchtigkeit"
+          "humidity": "Luftfeuchtigkeit"
         }
       },
       "ambient_light_mode": {
@@ -276,7 +303,43 @@
         "state": {
           "indoor_allergen_index": "Innenraum Allergie Index",
           "pm25": "PM2.5",
-          "gas": "Gas"
+          "gas_level": "Gas"
+        }
+      },
+      "fan_mode": {
+        "name": "Lüftermodus",
+        "state": {
+          "auto": "Auto",
+          "auto_general": "Auto/Allgemein",
+          "auto_plus": "Auto+",
+          "bacteria": "Bakterien",
+          "allergen": "Allergie",
+          "gentle": "Sanft",
+          "night": "Nacht",
+          "sleep": "Schlaf",
+          "sleep_allergy": "Schlaf/Allergie",
+          "allergy_sleep": "Allergie/Schlaf",
+          "turbo": "Turbo",
+          "medium": "Medium",
+          "gas": "Gas",
+          "pollution": "Verschmutzung",
+          "low": "Niedrig",
+          "high": "Hoch",
+          "ventilation": "Durchlüftung",
+          "natural": "Natürlich",
+          "speed_1": "Speed 1",
+          "gentle_speed_1": "Sanft/Speed 1",
+          "speed_2": "Speed 2",
+          "speed_3": "Speed 3",
+          "speed_4": "Speed 4",
+          "speed_5": "Speed 5",
+          "speed_6": "Speed 6",
+          "speed_7": "Speed 7",
+          "speed_8": "Speed 8",
+          "speed_9": "Speed 9",
+          "speed_10": "Speed 10",
+          "speed_11": "Speed 11",
+          "speed_12": "Speed 12"
         }
       },
       "timer": {
@@ -293,10 +356,25 @@
       },
       "target_temperature": {
         "name": "Zieltemperatur"
+      },
+      "humidity_target": {
+        "name": "Ziel-Luftfeuchtigkeit"
       }
     }
   },
   "exceptions": {
+    "no_target_entities": {
+      "message": "Keine Zielentitäten angegeben"
+    },
+    "invalid_target_entity": {
+      "message": "Ungültige Zielentität: {entity_id}"
+    },
+    "filter_reset_failed": {
+      "message": "Zurücksetzen des Filters für {entity_id} fehlgeschlagen"
+    },
+    "set_child_lock_failed": {
+      "message": "Setzen der Kindersicherung für {entity_id} fehlgeschlagen"
+    },
     "cannot_connect": {
       "message": "Verbindung zum Gerät unter {host} fehlgeschlagen"
     },
@@ -308,6 +386,54 @@
     },
     "unknown_filter_type": {
       "message": "Unbekannter Filtertyp: {filter_type}"
+    }
+  },
+  "issues": {
+    "connectivity_issue": {
+      "title": "Verbindungsproblem mit dem Luftreiniger",
+      "description": "Ihr Luftreiniger antwortet nicht auf Netzwerkanfragen. Mögliche Ursachen sind Netzwerkprobleme, der Betriebszustand des Geräts oder eine geänderte IP-Adresse. Starten Sie die Reparatur, um das Problem automatisch beheben zu lassen."
+    },
+    "entity_registry_cleanup": {
+      "title": "Bereinigung des Entitätsregisters erforderlich",
+      "description": "Im Entitätsregister wurden verwaiste oder doppelte Entitäten gefunden. Das kann nach einer Neukonfiguration des Geräts oder einem Update der Integration passieren. Starten Sie die Reparatur, um sie automatisch zu bereinigen."
+    },
+    "filter_replacement_warning": {
+      "title": "Filterwechsel erforderlich",
+      "description": "Mindestens ein Filter Ihres Luftreinigers muss gewartet werden. Prüfen Sie anhand der Filterstatus-Sensoren, ob ein Filter gewechselt oder gereinigt werden muss. Starten Sie die Reparatur, um diese Warnung zu bestätigen."
+    },
+    "configuration_migration": {
+      "title": "Migration der Konfiguration erforderlich",
+      "description": "Die Konfiguration der Integration muss aktualisiert werden, um neue Funktionen zu unterstützen. Die Migration aktualisiert Ihre Konfiguration automatisch, ohne dass Einstellungen verloren gehen."
+    },
+    "duplicate_entities": {
+      "title": "Doppelte Entitäten erkannt",
+      "description": "Es wurden doppelte Entitäten erkannt. Das passiert meist, wenn die eindeutigen IDs von Entitäten kollidieren. Starten Sie die Reparatur, um doppelte Entitäten automatisch zu entfernen."
+    }
+  },
+  "services": {
+    "filter_reset": {
+      "name": "Filterlebensdauer zurücksetzen",
+      "description": "Setzt die Zähler der Filterlebensdauer und die Wartungspläne des angegebenen Luftreinigers zurück.",
+      "fields": {
+        "filter_type": {
+          "name": "Filtertyp",
+          "description": "Zurückzusetzender Filtertyp (all, pre_filter, hepa_filter, active_carbon_filter, nanoprotect_filter)"
+        },
+        "reset_maintenance_schedule": {
+          "name": "Wartungsplan zurücksetzen",
+          "description": "Ob der Plan für Wartungserinnerungen zurückgesetzt werden soll"
+        }
+      }
+    },
+    "set_child_lock": {
+      "name": "Kindersicherung festlegen",
+      "description": "Aktiviert oder deaktiviert die Kindersicherung des Luftreinigers.",
+      "fields": {
+        "enabled": {
+          "name": "Aktiviert",
+          "description": "Ob die Kindersicherung aktiviert oder deaktiviert werden soll"
+        }
+      }
     }
   }
 }

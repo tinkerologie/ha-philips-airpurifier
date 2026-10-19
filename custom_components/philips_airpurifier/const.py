@@ -47,6 +47,7 @@ DEFAULT_NAME = "Philips AirPurifier"
 CONF_MODEL = "model"
 CONF_DEVICE_ID = "device_id"
 CONF_STATUS = "status"
+CONF_LAST_NUDGE_VALUES = "last_nudge_values"
 # MAC address captured during DHCP discovery. Stored so the device is registered
 # with a network-MAC connection, which lets the `registered_devices` DHCP matcher
 # re-discover the device and update its IP after a DHCP lease change. See issue #8.
