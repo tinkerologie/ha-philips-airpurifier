@@ -1413,6 +1413,16 @@ DEVICE_MODELS: dict[str, DeviceModelConfig] = {
             PhilipsApi.NEW2_OSCILLATION: PhilipsApi.OSCILLATION_MAP5,
         },
         oscillation_is_angle=True,
+        # AWS_Philips_AIR_Combo@86 firmware never answers a status read; it only
+        # pushes status to observers on a real state change (same as CX7550).
+        # Changing the display backlight (D0312D, 0 = off, 100 = on) forces a
+        # full status push; writing the value it already has does not. The two
+        # values are a (transient, resting) pair: the coordinator ends on the
+        # user's last-known backlight value. See coordinator._build_status_nudge.
+        status_nudge=[
+            (PhilipsApi.NEW2_DISPLAY_BACKLIGHT, 0),
+            (PhilipsApi.NEW2_DISPLAY_BACKLIGHT, 100),
+        ],
     ),
     # =========================================================================
     # CX3120
