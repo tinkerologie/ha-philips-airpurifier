@@ -7,6 +7,8 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 
 ## [Unreleased]
 
+## [2026.10.2] - 2026-10-19
+
 ### Fixed
 
 - Push-only models (CX7550, HU1509/HU1510/HU4209, AMF870) no longer switch the display back on after a Home Assistant restart. The integration now remembers the display backlight value the device last reported and ends the first nudge after a restart on that value instead of the model default. The value is stored with the config entry (`last_nudge_values`) and only updated from real status pushes, never from the nudge's own temporary write (#155).
