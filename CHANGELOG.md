@@ -7,10 +7,6 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 
 ## [Unreleased]
 
-### Fixed
-
-- AMF870 units with `AWS_Philips_AIR_Combo@86` firmware are now handled as push-only: this firmware never answers a status read and only pushes status when something changes, so setup could keep retrying and the device went unavailable whenever it was idle in standby. The integration now briefly changes the display backlight (`D0312D`, 0/100) to get a status push at setup and on reconnect, then restores the last-known backlight value (the display may flicker briefly), and uses the fixed 30-minute push-only watchdog. The per-device option to turn the watchdog off still applies; the missed-package threshold doesn't apply to push-only models. Existing AMF870 entries pick this up after a restart or reload, with no reconfiguration needed. Thanks to @mbreitkreuz for the detailed analysis (#132).
-
 ### Security
 
 - Development tooling only (not shipped in the integration): npm `overrides` move `katex` to 0.18 (GHSA-238p-pmpm-9mq7, low) and `smol-toml` to 1.9 (GHSA-r4xh-jqrq-34v2, moderate), both pulled in by `markdownlint-cli2`, whose latest release still pins the vulnerable versions.
@@ -30,6 +26,7 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 ### Fixed
 
 - Fixed `ImportError` on setup (e.g. `cannot import name 'FanEntityFeature'`) by importing platform classes and constants from the Home Assistant component packages instead of their `.const` submodules.
+- AMF870 units with `AWS_Philips_AIR_Combo@86` firmware are now handled as push-only: this firmware never answers a status read and only pushes status when something changes, so setup could keep retrying and the device went unavailable whenever it was idle in standby. The integration now briefly changes the display backlight (`D0312D`, 0/100) to get a status push at setup and on reconnect, then restores the last-known backlight value (the display may flicker briefly), and uses the fixed 30-minute push-only watchdog. The per-device option to turn the watchdog off still applies; the missed-package threshold doesn't apply to push-only models. Existing AMF870 entries pick this up after a restart or reload, with no reconfiguration needed. Thanks to @mbreitkreuz for the detailed analysis (#132).
 
 ## [2026.10.0] - 2026-10-08
 
