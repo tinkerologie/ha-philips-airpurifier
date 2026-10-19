@@ -29,7 +29,7 @@ body:
     attributes:
       label: Integration version
       description: What integration version are you running?
-      placeholder: "2026.10.0"
+      placeholder: "2026.10.1"
     validations:
       required: true
   - type: input

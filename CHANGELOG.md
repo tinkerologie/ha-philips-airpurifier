@@ -7,9 +7,7 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 
 ## [Unreleased]
 
-### Security
-
-- Development tooling only (not shipped in the integration): npm `overrides` move `katex` to 0.18 (GHSA-238p-pmpm-9mq7, low) and `smol-toml` to 1.9 (GHSA-r4xh-jqrq-34v2, moderate), both pulled in by `markdownlint-cli2`, whose latest release still pins the vulnerable versions.
+## [2026.10.1] - 2026-10-19
 
 ### Changed
 
@@ -33,6 +31,10 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 - The `filter_reset` and `set_child_lock` actions accept a target again. Their schemas did not allow the target fields, so Home Assistant rejected every targeted call with "not a valid option at 'entity_id'". A device or area target now sends each purifier the command once, entities of other integrations in a targeted area are ignored, and an invalid entity named directly fails the call before any device is changed.
 - The actions stay registered after the last purifier is removed or unloaded, instead of disappearing until Home Assistant restarts. Calling them for an unloaded purifier reports an invalid target instead of an unexpected error.
 - Repair issue titles and action names are now shown in English instead of raw translation keys (they were missing from `translations/en.json`).
+
+### Security
+
+- Development tooling only (not shipped in the integration): npm `overrides` move `katex` to 0.18 (GHSA-238p-pmpm-9mq7, low) and `smol-toml` to 1.9 (GHSA-r4xh-jqrq-34v2, moderate), both pulled in by `markdownlint-cli2`, whose latest release still pins the vulnerable versions.
 
 ## [2026.10.0] - 2026-10-08
 
@@ -230,7 +232,8 @@ Latest release prior to this changelog being introduced. See the
 [GitHub releases](https://github.com/tinkerologie/ha-philips-airpurifier/releases)
 for the history of earlier versions.
 
-[Unreleased]: https://github.com/tinkerologie/ha-philips-airpurifier/compare/v2026.10.0...HEAD
+[Unreleased]: https://github.com/tinkerologie/ha-philips-airpurifier/compare/v2026.10.1...HEAD
+[2026.10.1]: https://github.com/tinkerologie/ha-philips-airpurifier/compare/v2026.10.0...v2026.10.1
 [2026.10.0]: https://github.com/tinkerologie/ha-philips-airpurifier/compare/v2026.9.2...v2026.10.0
 [2026.9.2]: https://github.com/tinkerologie/ha-philips-airpurifier/compare/v2026.9.1...v2026.9.2
 [2026.6.1]: https://github.com/tinkerologie/ha-philips-airpurifier/compare/v2026.6.0...v2026.6.1
