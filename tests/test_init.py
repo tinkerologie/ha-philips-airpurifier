@@ -12,6 +12,7 @@ from custom_components.philips_airpurifier.const import (
     CONF_LAST_NUDGE_VALUES,
     CONF_MODEL,
     CONF_STATUS,
+    CONF_UPDATE_WATCHDOG,
     DOMAIN,
 )
 from homeassistant.config_entries import ConfigEntryState
@@ -166,4 +167,48 @@ async def test_setup_persists_nudge_resting_values_on_change(hass: HomeAssistant
             update_entry.assert_called_once()
 
         assert entry.data[CONF_LAST_NUDGE_VALUES] == {"D03105": 115}
+        await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_setup_watchdog_disabled_nudge_uses_persisted_not_cached_status(hass: HomeAssistant) -> None:
+    """With the watchdog off, the stale CONF_STATUS seed must not override the persisted value."""
+    cached = {"D01S05": "CX7550/01", "D03102": 1, "D03105": 115}
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="CX7550 Bedroom",
+        data={
+            CONF_HOST: "192.168.1.100",
+            CONF_MODEL: "CX7550",
+            CONF_NAME: "Bedroom",
+            CONF_DEVICE_ID: "aabbccddeeff",
+            CONF_STATUS: cached,
+            CONF_LAST_NUDGE_VALUES: {"D03105": 0},
+        },
+        options={CONF_UPDATE_WATCHDOG: False},
+        unique_id="aabbccddeeff",
+    )
+    entry.add_to_hass(hass)
+    client = AsyncMock()
+    client.shutdown = AsyncMock()
+
+    with (
+        patch("custom_components.philips_airpurifier.CoAPClient") as mock_client_cls,
+        patch(
+            "custom_components.philips_airpurifier.coordinator.PhilipsAirPurifierCoordinator._start_observing",
+        ),
+        patch(
+            "custom_components.philips_airpurifier.coordinator.async_fetch_status_with_nudge",
+            AsyncMock(return_value={**cached, "D03105": 0}),
+        ) as nudge_fetch,
+        patch(
+            "custom_components.philips_airpurifier.coordinator.async_create_client",
+            AsyncMock(return_value=client),
+        ),
+    ):
+        mock_client_cls.create = AsyncMock(return_value=client)
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        assert entry.state is ConfigEntryState.LOADED
+        assert nudge_fetch.await_args.args[1] == [("D03105", 115), ("D03105", 0)]
         await hass.config_entries.async_unload(entry.entry_id)

@@ -1064,8 +1064,8 @@ def test_build_status_nudge_uses_persisted_value_without_data(hass: HomeAssistan
 
 
 @pytest.mark.unit
-def test_build_status_nudge_live_data_beats_persisted_value(hass: HomeAssistant) -> None:
-    """Live status wins over the value persisted from an earlier run."""
+def test_build_status_nudge_observed_value_beats_cached_status(hass: HomeAssistant) -> None:
+    """A cached/seeded status can't override the value the observe stream reported."""
     coordinator = PhilipsAirPurifierCoordinator(
         hass,
         AsyncMock(),
@@ -1074,6 +1074,21 @@ def test_build_status_nudge_live_data_beats_persisted_value(hass: HomeAssistant)
         last_nudge_values={"D03105": 0},
     )
     coordinator.async_set_updated_data({**_CX_STATUS, "D03105": 123})
+
+    assert coordinator._build_status_nudge() == [("D03105", 115), ("D03105", 0)]
+
+
+@pytest.mark.unit
+def test_build_status_nudge_new_observation_replaces_persisted_value(hass: HomeAssistant) -> None:
+    """A fresh push from the device replaces the value persisted from an earlier run."""
+    coordinator = PhilipsAirPurifierCoordinator(
+        hass,
+        AsyncMock(),
+        TEST_HOST,
+        DeviceInformation(model="CX7550", name=TEST_NAME, device_id=TEST_DEVICE_ID, host=TEST_HOST),
+        last_nudge_values={"D03105": 0},
+    )
+    coordinator._record_nudge_resting_values({**_CX_STATUS, "D03105": 123})
 
     assert coordinator._build_status_nudge() == [("D03105", 0), ("D03105", 123)]
 

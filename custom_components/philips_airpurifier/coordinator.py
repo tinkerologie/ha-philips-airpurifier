@@ -245,12 +245,14 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         transient = base[0][1]
         resting = base[-1][1]
 
-        # Restore the user's last-known value for the nudged key when we have
-        # it: live status first, then the value persisted across restarts.
-        if self.data and self.data.get(key) is not None:
-            resting = self.data[key]
-        elif key in self._nudge_resting_values:
+        # Restore the user's last-known value for the nudged key. Prefer the
+        # value the observe stream last reported (persisted across restarts):
+        # coordinator.data may hold a cached CONF_STATUS seed or a nudge
+        # snapshot, while every real push also updates the observed value.
+        if key in self._nudge_resting_values:
             resting = self._nudge_resting_values[key]
+        elif self.data and self.data.get(key) is not None:
+            resting = self.data[key]
 
         # The transient write must differ from the resting value, otherwise the
         # device sees no change and never pushes. The model's two values differ,
