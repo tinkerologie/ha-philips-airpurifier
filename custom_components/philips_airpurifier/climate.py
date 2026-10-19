@@ -1,12 +1,15 @@
 """Philips Air Purifier climate (heater) platform."""
 
+# Home Assistant re-exports these platform names from the component package
+# without __all__; importing them from there is the public API.
+# pyright: reportPrivateImportUsage=false
+
 from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING, Any
 
-from homeassistant.components.climate import ClimateEntity
-from homeassistant.components.climate.const import SWING_OFF, SWING_ON, ClimateEntityFeature, HVACMode
+from homeassistant.components.climate import SWING_OFF, SWING_ON, ClimateEntity, ClimateEntityFeature, HVACMode
 from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
 
 from .const import HEATER_TYPES, SWITCH_OFF, SWITCH_ON, FanAttributes, PresetMode

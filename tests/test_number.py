@@ -18,8 +18,8 @@ from custom_components.philips_airpurifier.const import (
 from homeassistant.components.number import (
     ATTR_VALUE,
     DOMAIN as NUMBER_DOMAIN,
+    SERVICE_SET_VALUE,
 )
-from homeassistant.components.number.const import SERVICE_SET_VALUE
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import ATTR_ENTITY_ID, CONF_HOST, CONF_NAME
 from homeassistant.core import HomeAssistant
