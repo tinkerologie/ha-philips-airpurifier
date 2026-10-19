@@ -14,6 +14,7 @@ else:
         import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import ATTR_ENTITY_ID, ENTITY_MATCH_ALL
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv, entity_registry as er, target as target_helpers
 
@@ -88,8 +89,16 @@ def _resolve_target_coordinators(
     Entities named directly must belong to a loaded purifier; entities only
     pulled in by a device/area/label target are skipped when they are not ours.
     """
-    selected = _extract_selected_entities(hass, call)
     coordinators: dict[int, tuple[str, PhilipsAirPurifierCoordinator]] = {}
+    if call.data.get(ATTR_ENTITY_ID) == ENTITY_MATCH_ALL:
+        # "all" is accepted by the target schema but dropped by target
+        # expansion, so resolve it to every loaded purifier explicitly.
+        for entry in hass.config_entries.async_loaded_entries(DOMAIN):
+            coordinators.setdefault(id(entry.runtime_data), (ENTITY_MATCH_ALL, entry.runtime_data))
+        if coordinators:
+            return list(coordinators.values())
+
+    selected = _extract_selected_entities(hass, call)
     for entity_id in sorted(selected.referenced | selected.indirectly_referenced):
         coordinator = _get_coordinator_from_entity_id(hass, entity_id)
         if coordinator is None:

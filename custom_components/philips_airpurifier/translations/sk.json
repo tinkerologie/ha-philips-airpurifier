@@ -22,5 +22,19 @@
       "invalid_host": "Neplatný názov hostiteľa alebo IP adresa",
       "cannot_connect": "Nedá sa pripojiť k zariadeniu"
     }
+  },
+  "exceptions": {
+    "cannot_connect": {
+      "message": "Nepodarilo sa pripojiť k zariadeniu na adrese {host}"
+    },
+    "update_failed": {
+      "message": "Chyba pri komunikácii so zariadením na adrese {host}"
+    },
+    "command_failed": {
+      "message": "Nepodarilo sa odoslať príkaz do zariadenia na adrese {host}"
+    },
+    "unknown_filter_type": {
+      "message": "Neznámy typ filtra: {filter_type}"
+    }
   }
 }

@@ -424,3 +424,36 @@ async def test_direct_invalid_target_raises_before_any_command(
         )
 
     set_mock.assert_not_awaited()
+
+
+async def test_set_child_lock_all_target_reaches_every_purifier(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+) -> None:
+    """Test entity_id: all resolves to every loaded purifier."""
+    await async_setup_services(hass)
+
+    with patch.object(init_integration.runtime_data, "async_set_control_value", new=AsyncMock()) as set_mock:
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SET_CHILD_LOCK,
+            {"enabled": True},
+            target={"entity_id": "all"},
+            blocking=True,
+        )
+
+    set_mock.assert_awaited_once_with(PhilipsApi.CHILD_LOCK, True)
+
+
+async def test_all_target_without_loaded_purifiers_raises(hass: HomeAssistant) -> None:
+    """Test entity_id: all with no loaded purifier reports no targets."""
+    await async_setup_services(hass)
+
+    with pytest.raises(ServiceValidationError, match="No target entities provided"):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SET_CHILD_LOCK,
+            {"enabled": True},
+            target={"entity_id": "all"},
+            blocking=True,
+        )

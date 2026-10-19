@@ -59,7 +59,8 @@
               "speed_9": "Snelheid 9",
               "speed_10": "Snelheid 10",
               "speed_11": "Snelheid 11",
-              "speed_12": "Snelheid 12"
+              "speed_12": "Snelheid 12",
+              "allergy_sleep": "Allergie/Slaap"
             }
           }
         }
@@ -245,6 +246,20 @@
       "target_temperature": {
         "name": "Doeltemperatuur"
       }
+    }
+  },
+  "exceptions": {
+    "cannot_connect": {
+      "message": "Kan geen verbinding maken met het apparaat op {host}"
+    },
+    "update_failed": {
+      "message": "Fout bij communicatie met het apparaat op {host}"
+    },
+    "command_failed": {
+      "message": "Kan opdracht niet verzenden naar het apparaat op {host}"
+    },
+    "unknown_filter_type": {
+      "message": "Onbekend filtertype: {filter_type}"
     }
   }
 }
