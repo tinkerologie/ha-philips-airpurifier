@@ -14,8 +14,6 @@
 [latest_release]: https://github.com/tinkerologie/ha-philips-airpurifier/releases/latest
 [ha_shield]: https://img.shields.io/badge/Home%20Assistant-2026.4%2B-blue?style=flat-square
 [ha_link]: https://www.home-assistant.io/
-[docs_shield]: https://deepwiki.com/badge.svg
-[docs_link]: https://deepwiki.com/tinkerologie/ha-philips-airpurifier
 [license_shield]: https://img.shields.io/github/license/ruaan-deysel/ha-philips-airpurifier?style=flat-square&color=orange
 [license_link]: https://github.com/tinkerologie/ha-philips-airpurifier/blob/main/custom_components/philips_airpurifier/LICENSE.txt
 [community_forum_shield]: https://img.shields.io/badge/Community-Forum-blue?style=flat-square
