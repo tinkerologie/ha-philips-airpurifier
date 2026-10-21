@@ -3,7 +3,6 @@
 [![HACS Default][hacs_shield]][hacs]
 [![GitHub Latest Release][releases_shield]][latest_release]
 [![Home Assistant][ha_shield]][ha_link]
-[![Documentation][docs_shield]][docs_link]
 [![License][license_shield]][license_link]
 [![Community Forum][community_forum_shield]][community_forum]
 [![GitHub Issues][issues_shield]][issues_link]
