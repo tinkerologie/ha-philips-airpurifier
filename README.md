@@ -1,24 +1,12 @@
 # Philips Air Purifier Home Assistant Integration
 
-[![HACS Default][hacs_shield]][hacs]
-[![GitHub Latest Release][releases_shield]][latest_release]
-[![Home Assistant][ha_shield]][ha_link]
-[![License][license_shield]][license_link]
-[![Community Forum][community_forum_shield]][community_forum]
-[![GitHub Issues][issues_shield]][issues_link]
-
-[hacs_shield]: https://img.shields.io/badge/HACS-Default-green?style=flat-square
-[hacs]: https://hacs.xyz/docs/default_repositories
-[releases_shield]: https://img.shields.io/github/release/ruaan-deysel/ha-philips-airpurifier?style=flat-square&color=blue
-[latest_release]: https://github.com/tinkerologie/ha-philips-airpurifier/releases/latest
-[ha_shield]: https://img.shields.io/badge/Home%20Assistant-2026.4%2B-blue?style=flat-square
-[ha_link]: https://www.home-assistant.io/
-[license_shield]: https://img.shields.io/github/license/ruaan-deysel/ha-philips-airpurifier?style=flat-square&color=orange
-[license_link]: https://github.com/tinkerologie/ha-philips-airpurifier/blob/main/custom_components/philips_airpurifier/LICENSE.txt
-[community_forum_shield]: https://img.shields.io/badge/Community-Forum-blue?style=flat-square
-[community_forum]: https://community.home-assistant.io/t/philips-air-purifier/53030
-[issues_shield]: https://img.shields.io/github/issues/ruaan-deysel/ha-philips-airpurifier?style=flat-square&color=red
-[issues_link]: https://github.com/tinkerologie/ha-philips-airpurifier/issues
+<!-- BADGES:START -->
+[![Marketplace and HACS](https://img.shields.io/badge/Marketplace%20%7C%20HACS-Default-orange.svg)](https://www.hacs.xyz/docs/marketplace/)
+[![GitHub Last Commit](https://img.shields.io/github/last-commit/tinkerologie/ha-philips-airpurifier)](https://github.com/tinkerologie/ha-philips-airpurifier/commits/main)
+[![GitHub Release](https://img.shields.io/github/v/release/tinkerologie/ha-philips-airpurifier)](https://github.com/tinkerologie/ha-philips-airpurifier/releases)
+[![codecov](https://codecov.io/gh/tinkerologie/ha-philips-airpurifier/graph/badge.svg)](https://codecov.io/gh/tinkerologie/ha-philips-airpurifier)
+[![License](https://img.shields.io/github/license/tinkerologie/ha-philips-airpurifier)](./LICENSE)
+<!-- BADGES:END -->
 
 A comprehensive **Local Push** integration for Philips air purifiers and humidifiers in Home Assistant. This integration provides complete control over your Philips air quality devices using the encrypted CoAP protocol for local communication.
 
