@@ -25,9 +25,11 @@ This is a Home Assistant custom integration that was generated from a blueprint 
 
 **Integration details:**
 
-- **Domain:** `philips_airpurifier_coap`
-- **Title:** Philips Air Purifier
-- **Repository:** ruaan-deysel/ha-philips-airpurifier
+- **Domain:** `philips_airpurifier`
+- **Title:** Philips AirPurifier
+- **Repository:** tinkerologie/ha-philips-airpurifier
+
+The integration controls Philips Air Purifiers over the CoAP protocol and uses the `philips-airctrl` library for device communication. It supports 62+ device models across 3 API generations (Gen1, Gen2, Gen3).
 
 **Key directories:**
 
@@ -136,6 +138,29 @@ When a task completes and the developer moves to a new topic, suggest committing
 
 See `.github/copilot-instructions.md` for commit message examples and context monitoring guidance.
 
+## Architecture
+
+### Communication Pattern
+
+- **Local push** via CoAP protocol (no cloud, no polling)
+- `CoAPClient` from `philips-airctrl` handles encryption, sync, and observe
+- Coordinator uses `observe_status()` async iterator for real-time updates
+- Watchdog monitors connection health with automatic reconnection
+
+### Device Model System
+
+Device models are data, not classes. `DEVICE_MODELS` in `device_models.py` maps each `FanModel` to a `DeviceModelConfig` (defined in `model.py`) that declares its API generation, preset modes, speeds and the entities it supports. Add or change a model by editing that data, not by subclassing.
+
+Three API generations with different key formats:
+
+- Gen1: simple keys (`pwr`, `mode`, `om`)
+- Gen2: `D01-XX`, `D03-XX` format
+- Gen3: `D01SXX`, `D03XXX` format
+
+### Config Entry Pattern
+
+Uses `entry.runtime_data` typed as `PhilipsAirPurifierConfigEntry` to store the coordinator. Entity platforms access coordinator directly from the config entry.
+
 ## Custom Integration Flexibility
 
 **This is a CUSTOM integration, not a Home Assistant Core integration.** While we follow Core patterns for quality and maintainability, we have more flexibility in implementation decisions:
@@ -175,6 +200,8 @@ As an AI agent, **aim for Silver or Gold Quality Scale** when generating code:
 
 **JSON:** 2 spaces, no trailing commas, no comments
 
+**Tooling:** Python 3.14.2+, `uv` for dependency management
+
 **Validation:** Run `script/check` before committing (runs type-check + lint + spell)
 
 **hassfest validation:** Run `script/hassfest` to validate against Home Assistant standards
@@ -197,51 +224,37 @@ As an AI agent, **aim for Silver or Gold Quality Scale** when generating code:
 
 This integration uses the following identifiers consistently:
 
-- **Domain:** `philips_airpurifier_coap`
-- **Title:** Philips Air Purifier
+- **Domain:** `philips_airpurifier`
+- **Title:** Philips AirPurifier
 - **Class prefix:** `PhilipsAirPurifier`
 
 **When creating new files:**
 
-- Use the domain `philips_airpurifier_coap` for all DOMAIN references
+- Use the domain `philips_airpurifier` (`DOMAIN` in `const.py`) for all DOMAIN references
 - Prefix all integration-specific classes with `PhilipsAirPurifier`
-- Use "Integration Blueprint" as the display title
+- Use "Philips AirPurifier" as the display title (`manifest.json`)
 - Never hardcode different values
 
 ### Integration Structure
 
-**Package organization (DO NOT create other packages):**
+**Module layout (flat, one module per concern):**
 
-- `api/` - API client and exceptions
-- `coordinator/` - Data update coordinator
-- `config_flow_handler/` - Config flow, options, validators, schemas
-  - `validators/*.py` - Config flow validation functions
-  - `schemas/*.py` - Data schemas for config flow steps
-- `entity/` - Base entity classes
-- `entity_utils/` - Entity-specific helpers (device_info, state formatting)
-- `[platform]/` - Entity platforms (sensor, switch, etc.)
-- `service_actions/` - Service action implementations
-- `utils/` - Integration-wide utilities (string helpers, general validators)
+- `client.py` - CoAP client wrapper around `philips-airctrl`
+- `coordinator.py` - Data update coordinator
+- `config_flow.py` - Config flow and options flow
+- `entity.py` - Base entity class (`PhilipsAirPurifierEntity`)
+- `model.py`, `device_models.py` - Device model data (`DeviceModelConfig`, `DEVICE_MODELS`)
+- `<platform>.py` - Entity platforms (`fan.py`, `sensor.py`, `switch.py`, ...)
+- `services.py` - Service action handlers
+- `helpers.py` - Integration-wide helpers
+- `diagnostics.py`, `repairs.py` - Diagnostics and repair issues
 
-**Do NOT create:**
-
-- `helpers/`, `ha_helpers/`, or similar packages - use `utils/` or `entity_utils/` instead
-- `common/`, `shared/`, `lib/` - use existing packages above
-- New top-level packages without explicit approval
+Put new code in the matching module. Do not add packages or new top-level modules without explicit approval.
 
 **Key patterns:**
 
 - Entities → Coordinator → API Client (never skip layers)
-- Each platform in own directory with `__init__.py`
-- One entity class per file for clarity
-- Individual entity classes in separate files (e.g., `air_quality.py`)
 - Use `EntityDescription` dataclasses for static entity metadata
-
-**Code organization principles:**
-
-- Keep files focused (200-400 lines per file)
-- One class per file for entity implementations
-- Split large modules into smaller ones when needed
 
 **For detailed patterns, see:**
 
@@ -329,7 +342,7 @@ python3 -m script.scaffold config_flow_oauth2     # OAuth2 flow
 
 **Config flow:**
 
-- Implement in `config_flow_handler/` package
+- Implement in `config_flow.py`
 - Support user setup, discovery, reauth, reconfigure
 - Always set unique_id for discovered entries
 
@@ -338,7 +351,7 @@ See `.github/instructions/config_flow.instructions.md` for comprehensive pattern
 **Service actions:**
 
 - Define in `services.yaml` with full descriptions (legacy filename)
-- Implement handlers in `service_actions/` directory
+- Implement handlers in `services.py`
 - **Register in `async_setup()`** - NOT in `async_setup_entry()` (Quality Scale!)
 - Format: `<integration_domain>.<action_name>`
 
@@ -354,9 +367,10 @@ See `.github/instructions/coordinator.instructions.md` and `.github/instructions
 
 **Entities:**
 
-- Inherit from platform base + `IntegrationBlueprintEntity`
+- Inherit from platform base + `PhilipsAirPurifierEntity` (`entity.py`)
 - Read from `coordinator.data`, never call API directly
 - Use `EntityDescription` for static metadata
+- Platforms follow HA patterns: `async_setup_entry()` → create entities → `async_add_entities()`
 
 See `.github/instructions/entities.instructions.md` for entity patterns.
 
@@ -401,6 +415,8 @@ See `.github/instructions/repairs.instructions.md` for comprehensive patterns.
 
 ## Validation Scripts
 
+**First-time setup:** `script/setup` installs dependencies with `uv` and sets up pre-commit hooks.
+
 **Before committing, run:**
 
 ```bash
@@ -413,7 +429,7 @@ script/test       # Run unit tests
 **Configured tools:**
 
 - **Ruff** - Fast Python linter and formatter ([Rules Reference](https://docs.astral.sh/ruff/rules/))
-- **Pyright** - Type checker configured for "basic" mode ([Docs](https://microsoft.github.io/pyright/))
+- **Pyright** - Type checker configured for "strict" mode (`pyrightconfig.json`) ([Docs](https://microsoft.github.io/pyright/))
 - **pytest** - Test runner with async support ([Docs](https://docs.pytest.org/))
 
 **Generate code that passes these checks on first run.** As an AI agent, you should produce higher quality code than manual development:
@@ -533,10 +549,11 @@ See `.github/instructions/tests.instructions.md` for comprehensive testing patte
 - Propose a plan first before starting implementation
 - Get explicit confirmation from developer
 
-**Important: Do NOT create or modify tests unless explicitly requested.** Focus on implementing functionality. The developer decides when and if tests are needed.
+**Tests:** add or update tests for the code you change. Codecov's `codecov/patch` check requires at least 90% of changed lines to be covered (see the organization GOVERNANCE.md), and `pyproject.toml` sets `fail_under = 100`.
 
 **Translation strategy:**
 
+- Translations live in the `translations/` directory (en, de, bg, etc.)
 - Use placeholders in code (e.g., `"config.step.user.title"`) - functionality works without translations
 - Update `en.json` only when asked or at major feature completion
 - NEVER update other language files automatically - extremely time-consuming
