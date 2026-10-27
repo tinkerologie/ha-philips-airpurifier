@@ -182,7 +182,7 @@ jobs:
         run: npm run build
         working-directory: frontend
       - name: Verify packaged bundle is current
-        run: git diff --exit-code -- custom_components/philips_airpurifier/frontend/philips-airpurifier-cards.js
+        run: git diff --exit-code -- custom_components/philips_airpurifier/frontend/
 
   minimum-version:
     name: Home Assistant 2026.9 minimum
