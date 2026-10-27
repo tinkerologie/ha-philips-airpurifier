@@ -404,11 +404,20 @@ device_id: YOUR_PHILIPS_DEVICE_ID
 All cards accept `device_id` and an optional `name`. Purifier and humidity cards
 also accept an `entity` override belonging to the selected device. The purifier
 card supports `show_presets`, `show_speed`, `show_filter`, and `show_pm25` (all
-true by default). Child-lock and display controls appear when supported. The
+true by default). Its controls panel mirrors the Philips Air+ app: power and
+child-lock buttons, a mode button that opens a "Choose a mode" sheet (shown as
+Auto+ when the Auto+ switch is on), and tiles for the display light, fan speed,
+light ring and timer, each shown only when the device supports it. The
 humidity card supports `show_target_control`, `show_mode`, and `show_water_level`
 (all true by default). Target bounds and step come from the actual device entities;
 missing metadata disables the target control. The air-quality card accepts an
-optional ordered `sensors` list; omit it to discover all supported readings.
+optional ordered `sensors` list; omit it to discover all supported readings in
+Philips app order (PM2.5, gas, allergens, TVOC). It rates readings as Good, Fair,
+Poor or Very poor (PM2.5 uses US EPA breakpoints 12/35/55 µg/m³; IAI uses 1–12 and
+gas uses L1–L4), shows a 24-hour PM2.5 trend from hourly recorder statistics
+(`show_trend`) and the device's humidity and temperature (`show_climate`). Override
+the level colours with the `--pap-good-color`, `--pap-fair-color`,
+`--pap-poor-color` and `--pap-very-poor-color` theme variables.
 TVOC and gas readings are device indices, not concentration measurements.
 
 Unavailable/unknown values are shown explicitly and unavailable controls are disabled.

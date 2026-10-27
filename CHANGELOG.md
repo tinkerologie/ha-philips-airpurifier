@@ -12,6 +12,10 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 - Three configurable, theme-aware Philips dashboard cards built with TypeScript 7 and Lit:
   purifier controls and filter health, air quality, and humidity controls. Includes visual
   editors, Sections sizing, accessible controls, and automatic versioned module loading.
+- Air-quality card shows an overall level with a summary, per-reading level meters,
+  a 24-hour PM2.5 trend and room humidity/temperature; the purifier card shows the
+  PM2.5 level and an Air+ style controls panel (power, child lock, mode sheet, display
+  light, fan speed, light ring and timer). Cards use Home Assistant design tokens for spacing, type and radius.
 - Browser interaction tests and CI checks for frontend types, dependencies, and bundle freshness.
 
 ### Changed

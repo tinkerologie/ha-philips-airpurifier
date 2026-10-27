@@ -68,9 +68,24 @@ export abstract class PhilipsAirPurifierBaseCard extends LitElement {
   }
   protected related(): Capability[] {
     return this.hass
-      ? (["fan", "humidifier", "air", "filter", "humidity", "water", "target", "lock", "light"] as Role[]).flatMap(
-          (role) => resolve(this.hass!, this.config, role)
-        )
+      ? (
+          [
+            "fan",
+            "humidifier",
+            "air",
+            "pm25",
+            "filter",
+            "humidity",
+            "temperature",
+            "water",
+            "target",
+            "lock",
+            "light",
+            "auto_plus",
+            "lamp",
+            "timer",
+          ] as Role[]
+        ).flatMap((role) => resolve(this.hass!, this.config, role))
       : [];
   }
   protected caps(role: Role): Capability[] {

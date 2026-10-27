@@ -3,7 +3,7 @@ import type { CardConfig, HomeAssistant } from "./types";
 import { resolve } from "./discovery";
 const booleanFields: Record<string, string[]> = {
   purifier: ["show_presets", "show_speed", "show_filter", "show_pm25"],
-  "air-quality": [],
+  "air-quality": ["show_trend", "show_climate"],
   humidity: ["show_target_control", "show_mode", "show_water_level"],
 };
 export class PhilipsAirPurifierCardEditor extends LitElement {
@@ -49,7 +49,7 @@ export class PhilipsAirPurifierCardEditor extends LitElement {
       .hass=${this.hass}
       .data=${{ ...Object.fromEntries((booleanFields[kind] ?? []).map((name) => [name, true])), ...this.config }}
       .schema=${schema}
-      .computeLabel=${(s: { name: string }) => ({ device_id: "Device", entity: "Control entity (optional override)", name: "Name (optional)", sensors: "Air-quality sensors (optional, ordered)" })[s.name] ?? { show_presets: "Show mode controls", show_speed: "Show fan speed", show_filter: "Show filter health", show_pm25: "Show PM2.5", show_target_control: "Show target controls", show_mode: "Show modes", show_water_level: "Show water level" }[s.name] ?? s.name.replaceAll("_", " ")}
+      .computeLabel=${(s: { name: string }) => ({ device_id: "Device", entity: "Control entity (optional override)", name: "Name (optional)", sensors: "Air-quality sensors (optional, ordered)" })[s.name] ?? { show_presets: "Show mode controls", show_speed: "Show fan speed", show_filter: "Show filter health", show_pm25: "Show PM2.5", show_target_control: "Show target controls", show_mode: "Show modes", show_water_level: "Show water level", show_trend: "Show 24-hour PM2.5 trend", show_climate: "Show humidity and temperature" }[s.name] ?? s.name.replaceAll("_", " ")}
       @value-changed=${this.changed}
     ></ha-form>`;
   }

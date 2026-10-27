@@ -43,12 +43,20 @@ function matches(hass: HomeAssistant, e: RegistryEntity, role: Role): boolean {
         domain === "sensor" &&
         (filterKeys.has(key ?? "") || "Filter Life Remaining" in (hass.states[e.entity_id]?.attributes ?? {}))
       );
+    case "temperature":
+      return domain === "sensor" && (key === "temperature" || deviceClass === "temperature");
     case "water":
       return domain === "sensor" && key === "water_level";
     case "target":
       return domain === "number" && key === "humidity_target";
     case "lock":
       return domain === "switch" && key === "child_lock";
+    case "auto_plus":
+      return domain === "switch" && key === "auto_plus";
+    case "lamp":
+      return domain === "select" && key === "lamp_mode";
+    case "timer":
+      return domain === "select" && key === "timer";
   }
 }
 export function capability(hass: HomeAssistant, id: string): Capability {
