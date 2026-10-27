@@ -61,7 +61,7 @@
               "night": "Nacht",
               "sleep": "Schlaf",
               "sleep_allergy": "Schlaf/Allergie",
-              "allergy_sleep": "Allergie/Schlaf",
+              "allergy_sleep": "Schlaf/Allergie",
               "turbo": "Turbo",
               "medium": "Medium",
               "gas": "Gas",
@@ -194,9 +194,6 @@
       "pm25": {
         "name": "PM2.5"
       },
-      "gas": {
-        "name": "Gas"
-      },
       "total_volatile_organic_compounds": {
         "name": "Flüchtige organische Verbindungen insgesamt"
       },
@@ -235,6 +232,12 @@
       },
       "nanoprotect_filter": {
         "name": "NanoProtect Filter"
+      },
+      "gas_level": {
+        "name": "Gas"
+      },
+      "pre_filter_cleaning": {
+        "name": "Vorfilter"
       }
     },
     "switch": {
@@ -318,7 +321,7 @@
           "night": "Nacht",
           "sleep": "Schlaf",
           "sleep_allergy": "Schlaf/Allergie",
-          "allergy_sleep": "Allergie/Schlaf",
+          "allergy_sleep": "Schlaf/Allergie",
           "turbo": "Turbo",
           "medium": "Medium",
           "gas": "Gas",
@@ -346,7 +349,20 @@
         "name": "Timer",
         "state": {
           "off": "Aus",
-          "on": "An"
+          "on": "An",
+          "30min": "30 min",
+          "1h": "1 h",
+          "2h": "2 h",
+          "3h": "3 h",
+          "4h": "4 h",
+          "5h": "5 h",
+          "6h": "6 h",
+          "7h": "7 h",
+          "8h": "8 h",
+          "9h": "9 h",
+          "10h": "10 h",
+          "11h": "11 h",
+          "12h": "12 h"
         }
       }
     },

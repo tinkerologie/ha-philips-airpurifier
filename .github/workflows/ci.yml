@@ -137,3 +137,56 @@ jobs:
           files: ./coverage.xml
           use_oidc: ${{ env.CODECOV_OIDC == 'true' }}
           fail_ci_if_error: ${{ env.CODECOV_OIDC == 'true' }}
+
+  frontend:
+    name: Dashboard cards
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install card dependencies
+        run: npm ci
+        working-directory: frontend
+      - name: Check formatting
+        run: npm run format:check
+        working-directory: frontend
+      - name: Check TypeScript 7 types
+        run: npm run typecheck
+        working-directory: frontend
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - name: Run browser tests
+        run: npm test
+        working-directory: frontend
+      - name: Check dependencies
+        run: npm audit
+        working-directory: frontend
+      - name: Rebuild bundled cards
+        run: npm run build
+        working-directory: frontend
+      - name: Verify packaged bundle is current
+        run: git diff --exit-code -- custom_components/philips_airpurifier/frontend/philips-airpurifier-cards.js
+
+  minimum-version:
+    name: Home Assistant 2026.9 minimum
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - name: Set up Python
+        run: uv python install 3.14
+      - name: Test minimum supported Home Assistant
+        run: ./script/test-minimum

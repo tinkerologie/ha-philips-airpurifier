@@ -38,7 +38,8 @@
               "speed_9": "mdi:fan",
               "speed_10": "mdi:fan",
               "speed_11": "mdi:fan",
-              "speed_12": "mdi:fan"
+              "speed_12": "mdi:fan",
+              "allergy_sleep": "mdi:weather-night"
             }
           }
         }
@@ -140,10 +141,74 @@
         "default": "mdi:timer"
       },
       "runtime": {
-        "default": "mdi:timer-sand"
+        "default": "mdi:timer"
       },
       "speed": {
         "default": "mdi:fan"
+      },
+      "temperature": {
+        "default": "mdi:thermometer-low",
+        "range": {
+          "0": "mdi:thermometer-low",
+          "17": "mdi:thermometer",
+          "23": "mdi:thermometer-high"
+        }
+      },
+      "water_level": {
+        "default": "mdi:water-alert",
+        "range": {
+          "0": "mdi:water-alert",
+          "10": "mdi:water"
+        }
+      },
+      "rssi": {
+        "default": "mdi:wifi-strength-off-outline",
+        "range": {
+          "-150": "mdi:wifi-strength-off-outline",
+          "-90": "mdi:wifi-strength-outline",
+          "-80": "mdi:wifi-strength-1",
+          "-70": "mdi:wifi-strength-2",
+          "-67": "mdi:wifi-strength-3",
+          "-30": "mdi:wifi-strength-4"
+        }
+      },
+      "pre_filter": {
+        "default": "mdi:air-filter",
+        "range": {
+          "0": "mdi:air-filter",
+          "72": "mdi:dots-grid"
+        }
+      },
+      "hepa_filter": {
+        "default": "mdi:air-filter",
+        "range": {
+          "0": "mdi:air-filter",
+          "72": "mdi:dots-grid"
+        }
+      },
+      "active_carbon_filter": {
+        "default": "mdi:air-filter",
+        "range": {
+          "0": "mdi:air-filter",
+          "72": "mdi:dots-grid"
+        }
+      },
+      "wick": {
+        "default": "mdi:broom",
+        "range": {
+          "0": "mdi:broom",
+          "72": "mdi:dots-grid"
+        }
+      },
+      "nanoprotect_filter": {
+        "default": "mdi:air-filter"
+      },
+      "pre_filter_cleaning": {
+        "default": "mdi:broom",
+        "range": {
+          "0": "mdi:broom",
+          "10": "mdi:air-filter"
+        }
       }
     },
     "switch": {
@@ -255,7 +320,8 @@
           "speed_9": "mdi:fan",
           "speed_10": "mdi:fan",
           "speed_11": "mdi:fan",
-          "speed_12": "mdi:fan"
+          "speed_12": "mdi:fan",
+          "allergy_sleep": "mdi:weather-night"
         }
       },
       "timer": {

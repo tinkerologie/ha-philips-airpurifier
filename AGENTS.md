@@ -16,7 +16,6 @@ All AI coding assistants (Claude Code, Gemini, GitHub Copilot, Cursor, Roo, Devi
 10. Ready for Review: Only mark the PR as ready for review (`gh pr ready`) once all checks pass and all due diligence is verified.
 11. Review Clearance: Review and resolve all CodeRabbit AI and GitHub Copilot comments. Ensure Codecov reports show zero errors, zero warnings, and no coverage drop.
 
-
 This document provides guidance for AI coding agents working on this Home Assistant custom integration project.
 
 ## Project Overview
@@ -167,8 +166,8 @@ Uses `entry.runtime_data` typed as `PhilipsAirPurifierConfigEntry` to store the 
 
 **Third-party libraries (PyPI):**
 
--  Prefer existing PyPI libraries when maintained and fit the use case
--  Build custom API client when:
+- Prefer existing PyPI libraries when maintained and fit the use case
+- Build custom API client when:
   - Device/service uses simple REST API or GraphQL (HTTP, JSON)
   - Available libraries are unmaintained, bloated, or poorly designed
   - Using aiohttp + json is more maintainable than a framework

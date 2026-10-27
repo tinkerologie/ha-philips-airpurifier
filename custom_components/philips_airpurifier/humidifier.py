@@ -47,7 +47,7 @@ async def async_setup_entry(
     )
 
 
-class PhilipsHumidifier(PhilipsAirPurifierEntity, HumidifierEntity):
+class PhilipsHumidifier(PhilipsAirPurifierEntity, HumidifierEntity):  # pyright: ignore[reportIncompatibleVariableOverride]
     """Philips AirPurifier humidifier."""
 
     _attr_is_on: bool | None = False
@@ -75,6 +75,7 @@ class PhilipsHumidifier(PhilipsAirPurifierEntity, HumidifierEntity):
 
         self._attr_min_humidity = self._description[FanAttributes.MIN_HUMIDITY]
         self._attr_max_humidity = self._description[FanAttributes.MAX_HUMIDITY]
+        self._attr_target_humidity_step = self._description[FanAttributes.STEP]
         self._attr_target_humidity = latest_status.get(self._humidity_target_key)
         self._attr_current_humidity = latest_status.get(self._description[FanAttributes.HUMIDITY])
 
@@ -91,7 +92,7 @@ class PhilipsHumidifier(PhilipsAirPurifierEntity, HumidifierEntity):
             self._attr_available_modes = list(coordinator.model_config.preset_modes.keys())
 
     @property
-    def action(self) -> str:
+    def action(self) -> str:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the current action."""
         function_status = self._device_status.get(self._function_key)
 
@@ -101,17 +102,17 @@ class PhilipsHumidifier(PhilipsAirPurifierEntity, HumidifierEntity):
         return HumidifierAction.IDLE
 
     @property
-    def current_humidity(self) -> int | None:
+    def current_humidity(self) -> int | None:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the current humidity."""
         return self._device_status.get(self._description[FanAttributes.HUMIDITY])
 
     @property
-    def target_humidity(self) -> int | None:
+    def target_humidity(self) -> int | None:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the target humidity."""
         return self._device_status.get(self._humidity_target_key)
 
     @property
-    def mode(self) -> str | None:
+    def mode(self) -> str | None:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the current mode."""
         if self._switch:  # pragma: no branch
             function_status = self._device_status.get(self._function_key)
@@ -164,7 +165,7 @@ class PhilipsHumidifier(PhilipsAirPurifierEntity, HumidifierEntity):
             self._handle_coordinator_update()
 
     @property
-    def is_on(self) -> bool | None:
+    def is_on(self) -> bool | None:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the device state independent of the humidifier function."""
         return self._device_status.get(self._power_key) != self._description[FanAttributes.OFF]
 

@@ -40,7 +40,7 @@ async def async_setup_entry(
     )
 
 
-class PhilipsBinarySensor(PhilipsAirPurifierEntity, BinarySensorEntity):
+class PhilipsBinarySensor(PhilipsAirPurifierEntity, BinarySensorEntity):  # pyright: ignore[reportIncompatibleVariableOverride]
     """Philips AirPurifier binary sensor."""
 
     def __init__(
@@ -59,7 +59,7 @@ class PhilipsBinarySensor(PhilipsAirPurifierEntity, BinarySensorEntity):
         self.kind = kind
 
     @property
-    def is_on(self) -> bool:
+    def is_on(self) -> bool:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the state of the binary sensor."""
         value = self._device_status[self.kind]
         convert = self._description.get(FanAttributes.VALUE)

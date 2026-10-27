@@ -10,7 +10,7 @@ from philips_airctrl import CoAPClient
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_NAME, Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
@@ -27,6 +27,7 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import PhilipsAirPurifierCoordinator
+from .frontend import async_register_frontend
 from .model import DeviceInformation
 from .repairs import async_check_integration_health
 from .services import async_setup_services
@@ -57,6 +58,7 @@ CONFIG_SCHEMA: Callable[[ConfigType], ConfigType] = cast(
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up Philips AirPurifier integration."""
     _ = config
+    await async_register_frontend(hass)
     await async_setup_services(hass)
     return True
 
@@ -77,7 +79,6 @@ async def async_setup_entry(
         client = await async_create_client(host, timeout=25, create_client=CoAPClient.create)
         _LOGGER.debug("Got a valid client for host %s", host)
     except Exception as err:
-        _LOGGER.warning("Failed to connect to host %s: %s", host, err)
         raise ConfigEntryNotReady(
             f"Failed to connect to device at {host}",
             translation_domain=DOMAIN,
@@ -110,10 +111,11 @@ async def async_setup_entry(
     # Perform initial data refresh, then start CoAP observation
     await coordinator.async_first_refresh_and_observe()
 
-    hass.async_create_task(async_check_integration_health(hass, coordinator))
+    entry.async_create_background_task(hass, async_check_integration_health(hass, coordinator), f"{DOMAIN}_health")
 
+    @callback
     def _schedule_health_check() -> None:
-        hass.async_create_task(async_check_integration_health(hass, coordinator))
+        entry.async_create_background_task(hass, async_check_integration_health(hass, coordinator), f"{DOMAIN}_health")
 
     entry.async_on_unload(coordinator.async_add_listener(_schedule_health_check))
 
@@ -160,9 +162,4 @@ async def async_unload_entry(
     entry: PhilipsAirPurifierConfigEntry,
 ) -> bool:
     """Unload a config entry."""
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-
-    if unload_ok:
-        await entry.runtime_data.async_shutdown()
-
-    return unload_ok
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

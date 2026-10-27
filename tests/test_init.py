@@ -266,3 +266,21 @@ async def test_setup_without_stored_nudge_values_persists_first_observation(hass
         update_entry.assert_called_once()
         assert entry.data[CONF_LAST_NUDGE_VALUES] == {"D03105": 115}
         await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_failed_first_refresh_closes_client(hass, mock_config_entry, mock_coap_client):
+    """A failed setup must release the CoAP socket before HA retries."""
+    mock_config_entry.add_to_hass(hass)
+
+    async def fail_refresh():
+        mock_coap_client.shutdown.reset_mock()
+        raise RuntimeError("Invalid device response")
+
+    with patch(
+        "custom_components.philips_airpurifier.coordinator.PhilipsAirPurifierCoordinator.async_first_refresh_and_observe",
+        side_effect=fail_refresh,
+    ):
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+    assert mock_config_entry.state is ConfigEntryState.SETUP_ERROR
+    mock_coap_client.shutdown.assert_awaited_once()

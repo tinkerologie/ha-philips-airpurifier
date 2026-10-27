@@ -1,4 +1,9 @@
-"""Base entity for Philips AirPurifier integration."""
+"""Base entity for Philips AirPurifier integration.
+
+Platform property overrides need narrow Pyright suppressions: Home Assistant's
+cached_property descriptors are reported incompatible with ordinary properties,
+and CoordinatorEntity deliberately overrides Entity.available with a property.
+"""
 
 from __future__ import annotations
 

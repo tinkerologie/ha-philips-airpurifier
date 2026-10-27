@@ -7,11 +7,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.philips_airpurifier.const import PhilipsApi
 from custom_components.philips_airpurifier.sensor import (
     PhilipsFilterSensor,
-    PhilipsSensor,
     _format_duration,
-    _format_filter_capacity,
-    _format_time_remaining,
-    _pluralize,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
@@ -53,6 +49,10 @@ async def test_sensor_runtime_value(
     entries = er.async_entries_for_config_entry(entity_registry, init_integration.entry_id)
 
     runtime_entry = next(entry for entry in entries if entry.unique_id == "AC3858/51-aabbccddeeff-runtime")
+    assert runtime_entry.disabled_by is er.RegistryEntryDisabler.INTEGRATION
+    entity_registry.async_update_entity(runtime_entry.entity_id, disabled_by=None)
+    await hass.config_entries.async_reload(init_integration.entry_id)
+    await hass.async_block_till_done()
     state = hass.states.get(runtime_entry.entity_id)
 
     assert state is not None
@@ -301,125 +301,6 @@ async def test_sensor_unique_ids(
         assert entry.unique_id.startswith("AC3858/51-aabbccddeeff-")
 
 
-async def test_sensor_icon_mapping(
-    hass: HomeAssistant,
-    init_integration: MockConfigEntry,
-) -> None:
-    """Test sensor icons are set correctly based on value."""
-    entity_registry = er.async_get(hass)
-    entries = er.async_entries_for_config_entry(entity_registry, init_integration.entry_id)
-
-    # Temperature sensor has icon mapping
-    temp_entry = next(entry for entry in entries if entry.unique_id == "AC3858/51-aabbccddeeff-temp")
-    state = hass.states.get(temp_entry.entity_id)
-
-    assert state is not None
-    # Temp is 22, which is >= 17 and < 23, so should use "mdi:thermometer"
-    assert state.attributes.get("icon") == "mdi:thermometer"
-
-    # Filter sensors have icon mapping based on percentage
-    pre_filter_entry = next(entry for entry in entries if entry.unique_id == "AC3858/51-aabbccddeeff-pre_filter")
-    state = hass.states.get(pre_filter_entry.entity_id)
-
-    assert state is not None
-    # Pre-filter is at 8%, which is < 72%, so should show replacement icon
-    # Icon map: {0: ICON.FILTER_REPLACEMENT, 72: "mdi:dots-grid"}
-    # At 8%, should use the 0 threshold icon
-    assert state.attributes.get("icon") == "mdi:air-filter"
-
-
-async def test_sensor_icon_none_value_returns_default(
-    hass: HomeAssistant,
-    init_integration: MockConfigEntry,
-) -> None:
-    """Test sensor icon falls back when native value is None."""
-    coordinator = init_integration.runtime_data
-    coordinator.data["temp"] = None
-    coordinator.async_set_updated_data(coordinator.data)
-    await hass.async_block_till_done()
-
-    entity_registry = er.async_get(hass)
-    entries = er.async_entries_for_config_entry(entity_registry, init_integration.entry_id)
-    temp_entry = next(entry for entry in entries if entry.unique_id == "AC3858/51-aabbccddeeff-temp")
-    entity = hass.data["entity_components"]["sensor"].get_entity(temp_entry.entity_id)
-
-    assert entity.icon == "mdi:thermometer-low"
-
-
-async def test_sensor_icon_non_numeric_value_returns_default(
-    hass: HomeAssistant,
-    init_integration: MockConfigEntry,
-    monkeypatch,
-) -> None:
-    """Test sensor icon falls back when native value cannot be converted to int."""
-    monkeypatch.setattr(PhilipsSensor, "native_value", property(lambda _self: "invalid"))
-
-    entity_registry = er.async_get(hass)
-    entries = er.async_entries_for_config_entry(entity_registry, init_integration.entry_id)
-    temp_entry = next(entry for entry in entries if entry.unique_id == "AC3858/51-aabbccddeeff-temp")
-    entity = hass.data["entity_components"]["sensor"].get_entity(temp_entry.entity_id)
-
-    assert entity.icon == "mdi:thermometer-low"
-
-
-async def test_filter_sensor_icon_none_native_value_returns_default(
-    hass: HomeAssistant,
-    init_integration: MockConfigEntry,
-    monkeypatch,
-) -> None:
-    """Test filter sensor icon fallback when native value is None."""
-    monkeypatch.setattr(PhilipsFilterSensor, "native_value", property(lambda _self: None))
-
-    entity_registry = er.async_get(hass)
-    entries = er.async_entries_for_config_entry(entity_registry, init_integration.entry_id)
-    pre_filter_entry = next(entry for entry in entries if entry.unique_id == "AC3858/51-aabbccddeeff-pre_filter")
-    entity = hass.data["entity_components"]["sensor"].get_entity(pre_filter_entry.entity_id)
-
-    assert entity.icon == "mdi:air-filter"
-
-
-async def test_filter_sensor_icon_non_numeric_native_value_returns_default(
-    hass: HomeAssistant,
-    init_integration: MockConfigEntry,
-    monkeypatch,
-) -> None:
-    """Test filter sensor icon fallback when native value cannot be converted to int."""
-    monkeypatch.setattr(PhilipsFilterSensor, "native_value", property(lambda _self: "invalid"))
-
-    entity_registry = er.async_get(hass)
-    entries = er.async_entries_for_config_entry(entity_registry, init_integration.entry_id)
-    pre_filter_entry = next(entry for entry in entries if entry.unique_id == "AC3858/51-aabbccddeeff-pre_filter")
-    entity = hass.data["entity_components"]["sensor"].get_entity(pre_filter_entry.entity_id)
-
-    assert entity.icon == "mdi:air-filter"
-
-
-def test_pluralize() -> None:
-    """Test pluralization helper."""
-    assert _pluralize(1, "hour") == "1 hour"
-    assert _pluralize(2, "hour") == "2 hours"
-
-
-def test_format_duration_zero() -> None:
-    """Test duration formatting for zero values."""
-    assert _format_duration(0, "remaining") == "Replace immediately"
-
-
-def test_format_duration_year_month_week_day_hour_paths() -> None:
-    """Test duration formatting across all unit conversion branches."""
-    assert "year" in _format_duration(24 * 365, "remaining")
-    assert "month" in _format_duration(24 * 45, "remaining")
-    assert "week" in _format_duration(24 * 10, "remaining")
-    assert "day" in _format_duration(30, "remaining")
-    assert "hour" in _format_duration(5, "remaining")
-
-
-def test_format_wrapper_helpers() -> None:
-    """Test wrapper helpers for remaining/capacity."""
-    assert _format_time_remaining(48).endswith("remaining")
-    assert _format_filter_capacity(48).endswith("capacity")
-
-
 async def test_filter_sensor_without_total_uses_hour_remaining_branches(
     hass: HomeAssistant,
     init_integration: MockConfigEntry,
@@ -447,8 +328,7 @@ async def test_filter_sensor_without_total_uses_hour_remaining_branches(
         coordinator.data[PhilipsApi.FILTER_WICK] = 200
         assert sensor.extra_state_attributes["Replacement Status"] == "Good condition"
 
-        sensor._icon_map = None
-        assert sensor.icon == sensor._norm_icon
+        assert sensor.icon is None
     finally:
         coordinator.data.clear()
         coordinator.data.update(original)

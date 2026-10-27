@@ -17,6 +17,7 @@ dist/
 
 # Python virtual environments
 .venv/
+.local/
 .env
 
 # Test and type-checker caches/reports

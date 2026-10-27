@@ -7,6 +7,21 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 
 ## [Unreleased]
 
+### Added
+
+- Three configurable, theme-aware Philips dashboard cards built with TypeScript 7 and Lit:
+  purifier controls and filter health, air quality, and humidity controls. Includes visual
+  editors, Sections sizing, accessible controls, and automatic versioned module loading.
+- Browser interaction tests and CI checks for frontend types, dependencies, and bundle freshness.
+
+### Changed
+
+- Require Home Assistant 2026.9.0 or later in HACS.
+- Disable RSSI/runtime/speed diagnostics for new entity registrations; preserve existing user choices.
+- Move custom icons into frontend icon translations and redact identifying names in diagnostics.
+- Use Home Assistant entry lifecycle cleanup for CoAP resources, bound shutdown waits,
+  prevent reconnects after unload, and avoid duplicate setup-failure warnings.
+
 ## [2026.10.2] - 2026-10-19
 
 ### Fixed

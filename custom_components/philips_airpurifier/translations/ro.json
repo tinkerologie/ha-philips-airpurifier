@@ -61,7 +61,7 @@
               "night": "Noapte",
               "sleep": "Somn",
               "sleep_allergy": "Somn/Alergii",
-              "allergy_sleep": "Alergii/Somn",
+              "allergy_sleep": "Somn/Alergii",
               "turbo": "Turbo",
               "medium": "Mediu",
               "gas": "Gaz",
@@ -194,9 +194,6 @@
       "pm25": {
         "name": "PM2.5"
       },
-      "gas": {
-        "name": "Gaz"
-      },
       "total_volatile_organic_compounds": {
         "name": "Compuși organici volatili totali"
       },
@@ -235,6 +232,12 @@
       },
       "nanoprotect_filter": {
         "name": "Filtru NanoProtect"
+      },
+      "gas_level": {
+        "name": "Gaz"
+      },
+      "pre_filter_cleaning": {
+        "name": "Prefiltru"
       }
     },
     "switch": {
@@ -318,7 +321,7 @@
           "night": "Noapte",
           "sleep": "Somn",
           "sleep_allergy": "Somn/Alergii",
-          "allergy_sleep": "Alergii/Somn",
+          "allergy_sleep": "Somn/Alergii",
           "turbo": "Turbo",
           "medium": "Mediu",
           "gas": "Gaz",
@@ -346,7 +349,20 @@
         "name": "Temporizator",
         "state": {
           "off": "Oprit",
-          "on": "Pornit"
+          "on": "Pornit",
+          "30min": "30 min",
+          "1h": "1 h",
+          "2h": "2 h",
+          "3h": "3 h",
+          "4h": "4 h",
+          "5h": "5 h",
+          "6h": "6 h",
+          "7h": "7 h",
+          "8h": "8 h",
+          "9h": "9 h",
+          "10h": "10 h",
+          "11h": "11 h",
+          "12h": "12 h"
         }
       }
     },

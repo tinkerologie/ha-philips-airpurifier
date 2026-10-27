@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import MockConfigEntry, mock_component
 
 from custom_components.philips_airpurifier.const import (
     CONF_DEVICE_ID,
@@ -122,3 +122,11 @@ async def init_integration(
     assert mock_config_entry.state is ConfigEntryState.LOADED
 
     return mock_config_entry
+
+
+@pytest.fixture(autouse=True)
+def mock_dashboard_delivery(hass: HomeAssistant) -> Generator[AsyncMock]:
+    """Keep frontend dependencies out of device tests; delivery is tested separately."""
+    mock_component(hass, "frontend")
+    with patch("custom_components.philips_airpurifier.async_register_frontend", new_callable=AsyncMock) as register:
+        yield register

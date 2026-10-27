@@ -26,7 +26,7 @@ run_hook "spell-check" "pre"
 log_header "Checking spelling with codespell"
 codespell \
     --ignore-words-list=aiport,astroid,checkin,currenty,hass,iif,incomfort,lookin,nam,NotIn \
-    --skip="./.*,*.csv,*.json,*.ambr,uv.lock" \
+    --skip="./.*,*.csv,*.json,*.ambr,uv.lock,custom_components/philips_airpurifier/frontend/*" \
     --quiet-level=2 \
     custom_components/ \
     README.md \

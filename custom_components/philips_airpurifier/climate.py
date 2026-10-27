@@ -39,7 +39,7 @@ async def async_setup_entry(
     async_add_entities(PhilipsHeater(coordinator, kind) for kind in HEATER_TYPES if kind in model_config.heaters)
 
 
-class PhilipsHeater(PhilipsAirPurifierEntity, ClimateEntity):
+class PhilipsHeater(PhilipsAirPurifierEntity, ClimateEntity):  # pyright: ignore[reportIncompatibleVariableOverride]
     """Philips AirPurifier heater."""
 
     _attr_temperature_unit: str = UnitOfTemperature.CELSIUS
@@ -49,7 +49,7 @@ class PhilipsHeater(PhilipsAirPurifierEntity, ClimateEntity):
         HVACMode.AUTO,
         HVACMode.FAN_ONLY,
     ]
-    _attr_target_temperature_step: float = 1.0
+    _attr_target_temperature_step: float | None = 1.0
 
     def __init__(
         self,
@@ -95,12 +95,12 @@ class PhilipsHeater(PhilipsAirPurifierEntity, ClimateEntity):
             self._oscillation_modes = None
 
     @property
-    def target_temperature(self) -> int | None:
+    def target_temperature(self) -> int | None:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the target temperature."""
         return self._device_status.get(self._temperature_target_key)
 
     @property
-    def hvac_mode(self) -> HVACMode | None:  # pragma: no cover
+    def hvac_mode(self) -> HVACMode | None:  # pragma: no cover  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the current HVAC mode."""
         if not self.is_on:
             return HVACMode.OFF
@@ -122,7 +122,7 @@ class PhilipsHeater(PhilipsAirPurifierEntity, ClimateEntity):
             await self.async_set_preset_mode(PresetMode.LOW)
 
     @property
-    def preset_mode(self) -> str | None:
+    def preset_mode(self) -> str | None:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the current preset mode."""
         for preset_mode, status_pattern in self._preset_modes_map.items():
             for k, v in status_pattern.items():
@@ -145,7 +145,7 @@ class PhilipsHeater(PhilipsAirPurifierEntity, ClimateEntity):
             self._handle_coordinator_update()
 
     @property
-    def swing_mode(self) -> str | None:
+    def swing_mode(self) -> str | None:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the current swing mode."""
         if not self._oscillation_key or not self._oscillation_modes:
             return None

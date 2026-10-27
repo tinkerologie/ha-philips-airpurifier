@@ -61,6 +61,9 @@ rules:
       action input raises ServiceValidationError.
   config-entry-unloading:
     status: done
+    comment: >-
+      Base coordinator entry cleanup owns shutdown; repeated/concurrent cleanup,
+      bounded cancellation and late reconnect protection are covered by tests.
   docs-configuration-parameters:
     status: todo
     comment: The watchdog options are not documented in the README yet.
@@ -117,19 +120,15 @@ rules:
   entity-device-class:
     status: done
   entity-disabled-by-default:
-    status: todo
-    comment: >-
-      No entity is disabled by default yet; the diagnostic RSSI and runtime
-      sensors are candidates.
+    status: done
+    comment: RSSI, runtime and speed diagnostics are disabled for new registrations; existing choices remain unchanged.
   entity-translations:
     status: done
   exception-translations:
     status: done
   icon-translations:
-    status: todo
-    comment: >-
-      icons.json covers most entities, but sensors with level-based icons still
-      use the icon property and some numbers set _attr_icon.
+    status: done
+    comment: All custom static and numeric range icons are provided by icons.json.
   reconfiguration-flow:
     status: done
   repair-issues:
@@ -141,12 +140,18 @@ rules:
   # Platinum
   async-dependency:
     status: done
-    comment: philips-airctrl uses asyncio.
+    comment: >-
+      Inspected philips-airctrl 1.3.0 creation, read, write, observation and close
+      paths: network I/O is asynchronous. Transport imports are preloaded in an
+      executor. The unused synchronous discovery helper is not called.
   inject-websession:
     status: exempt
     comment: The device speaks CoAP over UDP; there is no HTTP session to inject.
   strict-typing:
-    status: done
+    status: todo
     comment: >-
-      Pyright strict mode (pyrightconfig.json) runs in CI with zero errors, and
-      philips-airctrl ships a py.typed marker from 1.3.0.
+      Integration Pyright strict checks pass with Unknown/Optional diagnostics
+      enforced as errors and narrow HA descriptor compatibility suppressions.
+      philips-airctrl 1.3.0 ships py.typed, but verifytypes reports only 86.3%
+      public type completeness; upstream typing work remains. Core's
+      .strict-typing registration is not applicable to this custom integration.
