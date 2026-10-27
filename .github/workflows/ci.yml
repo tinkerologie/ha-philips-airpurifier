@@ -161,7 +161,15 @@ jobs:
       - name: Check TypeScript 7 types
         run: npm run typecheck
         working-directory: frontend
+      - name: Bound package mirror downloads
+        run: |
+          cat <<'EOF' | sudo tee /etc/apt/apt.conf.d/80-ci-downloads >/dev/null
+          Acquire::Retries "2";
+          Acquire::http::Timeout "30";
+          Acquire::https::Timeout "30";
+          EOF
       - name: Install Chromium
+        timeout-minutes: 10
         run: npx playwright install --with-deps chromium
         working-directory: frontend
       - name: Run browser tests

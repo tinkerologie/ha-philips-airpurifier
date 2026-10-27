@@ -138,11 +138,14 @@ export abstract class PhilipsAirPurifierBaseCard extends LitElement {
     )
       return html`<div class="notice">The control entity must belong to the selected Philips device.</div>`;
     if (
-      this.config.sensors?.some(
-        (id) =>
-          this.hass!.entities?.[id]?.device_id !== device ||
-          this.hass!.entities?.[id]?.platform !== "philips_airpurifier"
-      )
+      this.config.sensors?.some((id) => {
+        const registry = this.hass!.entities?.[id];
+        // A deleted sensor has no registry entry or state: show its unavailable
+        // tile without hiding the remaining readings. A live unregistered
+        // sensor cannot be verified as belonging to this device.
+        if (!registry) return Boolean(this.hass!.states[id]);
+        return registry.device_id !== device || registry.platform !== "philips_airpurifier";
+      })
     )
       return html`<div class="notice">Air-quality sensors must belong to the selected Philips device.</div>`;
     return nothing;

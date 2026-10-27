@@ -215,4 +215,16 @@ describe("Philips dashboard cards", () => {
     expect(form.data.show_speed).eq(true);
     expect(form.data.show_filter).eq(true);
   });
+  it("keeps other readings visible when a configured sensor is deleted", async () => {
+    const { root } = await card(air, "AC3858/51", { sensors: ["sensor.pm", "sensor.deleted", "sensor.tvoc"] });
+    expect(root.textContent).contains("Unavailable");
+    expect(root.textContent).contains("6");
+    expect(root.textContent).contains("TVOC index");
+    expect(root.querySelectorAll(".tile").length).eq(3);
+  });
+  it("discovers air-quality sensors when the editor clears the override list", async () => {
+    const { root } = await card(air, "AC3858/51", { sensors: [] });
+    expect(root.querySelectorAll(".tile").length).eq(3);
+    expect(root.textContent).contains("TVOC index");
+  });
 });

@@ -63,7 +63,7 @@ export function capability(hass: HomeAssistant, id: string): Capability {
 }
 export function resolve(hass: HomeAssistant, config: CardConfig, role: Role): Capability[] {
   if (config.entity && (role === "fan" || role === "humidifier")) return [capability(hass, config.entity)];
-  if (role === "air" && config.sensors) return config.sensors.map((id) => capability(hass, id));
+  if (role === "air" && config.sensors?.length) return config.sensors.map((id) => capability(hass, id));
   const device = activeDevice(hass, config);
   if (!device) return [];
   return Object.values(hass.entities ?? {})
