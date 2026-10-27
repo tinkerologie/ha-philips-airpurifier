@@ -55,7 +55,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class PhilipsSensor(PhilipsAirPurifierEntity, SensorEntity):
+class PhilipsSensor(PhilipsAirPurifierEntity, SensorEntity):  # pyright: ignore[reportIncompatibleVariableOverride]
     """Philips AirPurifier sensor."""
 
     def __init__(
@@ -67,19 +67,18 @@ class PhilipsSensor(PhilipsAirPurifierEntity, SensorEntity):
         super().__init__(coordinator)
 
         self._description = SENSOR_TYPES[kind]
-        self._icon_map = self._description.get(FanAttributes.ICON_MAP)
-        self._norm_icon = next(iter(self._icon_map.items()))[1] if self._icon_map is not None else None
         self._attr_state_class = self._description.get(ATTR_STATE_CLASS)
         self._attr_device_class = self._description.get(ATTR_DEVICE_CLASS)
         self._attr_entity_category = self._description.get(CONF_ENTITY_CATEGORY)
         self._attr_translation_key = self._description.get(FanAttributes.LABEL)
+        self._attr_entity_registry_enabled_default = self._description.get(FanAttributes.ENABLED_DEFAULT, True)
         self._attr_native_unit_of_measurement = self._description.get(FanAttributes.UNIT)
 
         self._attr_unique_id = f"{coordinator.model}-{coordinator.device_id}-{kind.lower()}"
         self.kind = kind
 
     @property
-    def native_value(self) -> StateType:
+    def native_value(self) -> StateType:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the native value of the sensor."""
         value = self._device_status.get(self.kind)
         convert = self._description.get(FanAttributes.VALUE)
@@ -87,28 +86,8 @@ class PhilipsSensor(PhilipsAirPurifierEntity, SensorEntity):
             value = convert(value, self._device_status)
         return cast("StateType", value)
 
-    @property
-    def icon(self) -> str | None:
-        """Return the icon of the sensor."""
-        icon = self._norm_icon
-        if not self._icon_map:
-            return icon
 
-        native_value = self.native_value
-        if native_value is None:
-            return icon
-        try:
-            value = int(native_value)
-        except TypeError, ValueError:
-            return icon
-
-        for level_value, level_icon in self._icon_map.items():
-            if value >= level_value:
-                icon = level_icon
-        return icon
-
-
-class PhilipsFilterSensor(PhilipsAirPurifierEntity, SensorEntity):
+class PhilipsFilterSensor(PhilipsAirPurifierEntity, SensorEntity):  # pyright: ignore[reportIncompatibleVariableOverride]
     """Philips AirPurifier filter sensor."""
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
@@ -122,13 +101,13 @@ class PhilipsFilterSensor(PhilipsAirPurifierEntity, SensorEntity):
         super().__init__(coordinator)
 
         self._description = FILTER_TYPES[kind]
-        self._icon_map = self._description.get(FanAttributes.ICON_MAP)
-        self._norm_icon = next(iter(self._icon_map.items()))[1] if self._icon_map is not None else None
 
         self._value_key = kind
         self._total_key = self._description[FanAttributes.TOTAL]
         self._type_key = self._description[FanAttributes.TYPE]
-        self._attr_translation_key = self._description.get(FanAttributes.LABEL)
+        self._attr_translation_key = self._description.get(
+            "translation_key", self._description.get(FanAttributes.LABEL)
+        )
 
         if self._has_total:
             self._attr_native_unit_of_measurement = PERCENTAGE
@@ -158,14 +137,14 @@ class PhilipsFilterSensor(PhilipsAirPurifierEntity, SensorEntity):
         return str(round(timedelta(hours=self._value) / timedelta(hours=1)))
 
     @property
-    def native_value(self) -> StateType:
+    def native_value(self) -> StateType:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the native value of the filter sensor."""
         if self._has_total:
             return self._percentage
         return self._time_remaining
 
     @property
-    def extra_state_attributes(self) -> dict[str, Any]:
+    def extra_state_attributes(self) -> dict[str, Any]:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the extra state attributes of the filter sensor."""
         attrs: dict[str, Any] = {}
 
@@ -205,26 +184,6 @@ class PhilipsFilterSensor(PhilipsAirPurifierEntity, SensorEntity):
                 attrs["Replacement Status"] = "Good condition"
 
         return attrs
-
-    @property
-    def icon(self) -> str | None:
-        """Return the icon of the sensor."""
-        icon = self._norm_icon
-        if not self._icon_map:
-            return icon
-
-        native_value = self.native_value
-        if native_value is None:
-            return icon
-        try:
-            value = int(native_value)
-        except TypeError, ValueError:
-            return icon
-
-        for level_value, level_icon in self._icon_map.items():
-            if value >= level_value:
-                icon = level_icon
-        return icon
 
 
 def _pluralize(value: int, unit: str) -> str:

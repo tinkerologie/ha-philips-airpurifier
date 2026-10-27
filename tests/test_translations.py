@@ -90,3 +90,47 @@ def test_strings_matches_english() -> None:
 
     mismatches = _placeholder_mismatches(strings, english)
     assert not mismatches, f"en.json has placeholder mismatches with strings.json: {mismatches}"
+
+
+def test_runtime_entity_metadata_has_names_and_icons() -> None:
+    """All model capability descriptions resolve to frontend translation resources."""
+    from custom_components.philips_airpurifier.const import (
+        BINARY_SENSOR_TYPES,
+        FILTER_TYPES,
+        LIGHT_TYPES,
+        NUMBER_TYPES,
+        SELECT_TYPES,
+        SENSOR_TYPES,
+        SWITCH_TYPES,
+        FanAttributes,
+    )
+
+    strings = json.loads(STRINGS_FILE.read_text())["entity"]
+    icons = json.loads((COMPONENT_DIR / "icons.json").read_text())["entity"]
+    descriptions = {
+        "sensor": {**SENSOR_TYPES, **FILTER_TYPES},
+        "binary_sensor": BINARY_SENSOR_TYPES,
+        "light": LIGHT_TYPES,
+        "number": NUMBER_TYPES,
+        "select": SELECT_TYPES,
+        "switch": SWITCH_TYPES,
+    }
+    for platform, kinds in descriptions.items():
+        for description in kinds.values():
+            key = description.get("translation_key", description[FanAttributes.LABEL])
+            assert key in strings[platform], (platform, key)
+            assert key in icons[platform] or description.get("device_class"), (platform, key)
+
+
+def test_every_model_preset_has_a_name_and_icon() -> None:
+    """Picker and state translations cover every supported model's fan presets."""
+    from custom_components.philips_airpurifier.device_models import DEVICE_MODELS
+
+    strings = json.loads(STRINGS_FILE.read_text())["entity"]
+    icons = json.loads((COMPONENT_DIR / "icons.json").read_text())["entity"]
+    names = strings["fan"]["pap"]["state_attributes"]["preset_mode"]["state"]
+    pictures = icons["fan"]["pap"]["state_attributes"]["preset_mode"]["state"]
+    for model, config in DEVICE_MODELS.items():
+        for preset in config.preset_modes:
+            assert preset in names, (model, preset)
+            assert preset in pictures, (model, preset)

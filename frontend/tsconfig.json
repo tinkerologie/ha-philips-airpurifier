@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "useDefineForClassFields": false,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["mocha"]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
+}

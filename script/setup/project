@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Install the locked project dependencies used by local checks and CI.
+set -euo pipefail
+cd "$(dirname "$0")/../.."
+uv sync --all-extras
+npm ci --ignore-scripts
+npm ci --prefix frontend
+(cd frontend && npx playwright install chromium)

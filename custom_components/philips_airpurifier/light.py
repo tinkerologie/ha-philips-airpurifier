@@ -54,7 +54,7 @@ async def async_setup_entry(
     async_add_entities(PhilipsLight(coordinator, kind) for kind in LIGHT_TYPES if kind in model_config.lights)
 
 
-class PhilipsLight(PhilipsAirPurifierEntity, LightEntity):
+class PhilipsLight(PhilipsAirPurifierEntity, LightEntity):  # pyright: ignore[reportIncompatibleVariableOverride]
     """Philips AirPurifier light."""
 
     _attr_is_on: bool | None = False
@@ -100,7 +100,7 @@ class PhilipsLight(PhilipsAirPurifierEntity, LightEntity):
         self.kind = kind.partition("#")[0]
 
     @property
-    def is_on(self) -> bool:
+    def is_on(self) -> bool:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return if the light is on."""
         status = self._device_status.get(self.kind)
         if status is None or self._off is None:
@@ -108,7 +108,7 @@ class PhilipsLight(PhilipsAirPurifierEntity, LightEntity):
         return int(status) != int(self._off)
 
     @property
-    def brightness(self) -> int | None:  # pragma: no cover
+    def brightness(self) -> int | None:  # pragma: no cover  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the brightness of the light."""
         if self._dimmable:
             if self._auto and self._attr_effect == SWITCH_AUTO:

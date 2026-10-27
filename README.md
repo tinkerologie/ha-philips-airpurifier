@@ -1,6 +1,7 @@
 # Philips Air Purifier Home Assistant Integration
 
 <!-- BADGES:START -->
+
 [![Marketplace and HACS](https://img.shields.io/badge/Marketplace%20%7C%20HACS-Default-orange.svg)](https://www.hacs.xyz/docs/marketplace/)
 [![GitHub Last Commit](https://img.shields.io/github/last-commit/tinkerologie/ha-philips-airpurifier)](https://github.com/tinkerologie/ha-philips-airpurifier/commits/main)
 [![GitHub Release](https://img.shields.io/github/v/release/tinkerologie/ha-philips-airpurifier)](https://github.com/tinkerologie/ha-philips-airpurifier/releases)
@@ -74,7 +75,7 @@ This integration includes automatic reconnection attempts, but they may not alwa
 
 ### Prerequisites
 
-- Home Assistant 2026.4.0 or newer
+- Home Assistant 2026.9.0 or newer
 - Philips air purifier/humidifier connected to your local network
 - Device must support local CoAP communication (see [Important Notice](#️-important-notice))
 
@@ -376,3 +377,69 @@ If you find this integration useful, consider:
 - 🐛 Reporting issues
 - 🔧 Contributing improvements
 - ☕ [Supporting the project](https://github.com/sponsors/ruaan-deysel)
+
+## Dashboard cards
+
+Requires **Home Assistant 2026.9.0 or later**. The integration automatically loads its
+packaged cards after restart; select **Philips Purifier**, **Philips Air Quality**, or
+**Philips Humidity** in the dashboard card picker. Each has a visual editor with a
+device selector. Only entities exposed by that device appear. Reload the browser
+after upgrading if the picker has not refreshed.
+
+```yaml
+type: custom:philips-airpurifier-purifier-card
+device_id: YOUR_PHILIPS_DEVICE_ID
+```
+
+```yaml
+type: custom:philips-airpurifier-air-quality-card
+device_id: YOUR_PHILIPS_DEVICE_ID
+```
+
+```yaml
+type: custom:philips-airpurifier-humidity-card
+device_id: YOUR_PHILIPS_DEVICE_ID
+```
+
+All cards accept `device_id` and an optional `name`. Purifier and humidity cards
+also accept an `entity` override belonging to the selected device. The purifier
+card supports `show_presets`, `show_speed`, `show_filter`, and `show_pm25` (all
+true by default). Its controls panel mirrors the Philips Air+ app: power and
+child-lock buttons, a mode button that opens a "Choose a mode" sheet (shown as
+Auto+ when the Auto+ switch is on), and tiles for the display light, fan speed,
+light ring and timer, each shown only when the device supports it. The
+humidity card supports `show_target_control`, `show_mode`, and `show_water_level`
+(all true by default). Target bounds and step come from the actual device entities;
+missing metadata disables the target control. The air-quality card accepts an
+optional ordered `sensors` list; omit it to discover all supported readings in
+Philips app order (PM2.5, gas, allergens, TVOC). It rates readings as Good, Fair,
+Poor or Very poor (PM2.5 uses US EPA breakpoints 12/35/55 µg/m³; IAI uses 1–12 and
+gas uses L1–L4), shows a 24-hour PM2.5 trend from hourly recorder statistics
+(`show_trend`) and the device's humidity and temperature (`show_climate`). Override
+the level colours with the `--pap-good-color`, `--pap-fair-color`,
+`--pap-poor-color` and `--pap-very-poor-color` theme variables.
+TVOC and gas readings are device indices, not concentration measurements.
+
+Unavailable/unknown values are shown explicitly and unavailable controls are disabled.
+Service errors appear on the card. Filter details open Home Assistant more-info;
+filter resets remain deliberate integration actions. Scheduling and history use
+Home Assistant automations and recorder rather than unexposed Philips cloud data.
+
+For manual module registration (including YAML-managed dashboard resources), use:
+
+```yaml
+resources:
+  - url: /philips_airpurifier_frontend/philips-airpurifier-cards.js
+    type: module
+```
+
+Automatic loading uses the integration version and a bundle content hash to refresh
+cached assets. Registration is safe if the module is also present in manual resources.
+
+The integration targets the applicable implementation rules through Platinum on the
+Integration Quality Scale. Documentation gaps and incomplete upstream public typing remain recorded in `quality_scale.yaml`;
+this is a self-audit of a custom integration, not an official Platinum certification.
+
+For development, run `./script/setup/project`, then the repository `script/` checks.
+The isolated `frontend/` workspace uses `npm run typecheck`, `npm test`, and
+`npm run build`; commit the generated module together with source changes.

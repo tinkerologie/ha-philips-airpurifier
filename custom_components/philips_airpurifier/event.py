@@ -58,7 +58,7 @@ async def async_setup_entry(
         async_add_entities([PhilipsNotificationEvent(coordinator)])
 
 
-class PhilipsNotificationEvent(PhilipsAirPurifierEntity, EventEntity):
+class PhilipsNotificationEvent(PhilipsAirPurifierEntity, EventEntity):  # pyright: ignore[reportIncompatibleVariableOverride]
     """Event entity that fires when the device raises or clears a notification."""
 
     _attr_translation_key = "notification"

@@ -35,7 +35,7 @@ async def async_setup_entry(
     async_add_entities(PhilipsSwitch(coordinator, kind) for kind in SWITCH_TYPES if kind in model_config.switches)
 
 
-class PhilipsSwitch(PhilipsAirPurifierEntity, SwitchEntity):
+class PhilipsSwitch(PhilipsAirPurifierEntity, SwitchEntity):  # pyright: ignore[reportIncompatibleVariableOverride]
     """Philips AirPurifier switch."""
 
     _attr_is_on: bool | None = False
@@ -58,7 +58,7 @@ class PhilipsSwitch(PhilipsAirPurifierEntity, SwitchEntity):
         self.kind = kind
 
     @property
-    def is_on(self) -> bool:
+    def is_on(self) -> bool:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return if switch is on."""
         return self._device_status.get(self.kind) != self._off
 

@@ -1,3 +1,4 @@
+exclude: ^custom_components/philips_airpurifier/frontend/
 # Adapted from https://github.com/home-assistant/core/.pre-commit-config.yaml
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit

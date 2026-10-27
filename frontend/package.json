@@ -1,0 +1,26 @@
+{
+  "name": "philips-airpurifier-cards",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "node scripts/build.mjs",
+    "test": "web-test-runner --config web-test-runner.config.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "lit": "3.3.3"
+  },
+  "devDependencies": {
+    "@open-wc/testing": "^4.0.0",
+    "@types/mocha": "^10.0.10",
+    "@web/dev-server-esbuild": "^2.0.0",
+    "@web/test-runner": "^1.0.0",
+    "@web/test-runner-playwright": "^1.0.0",
+    "esbuild": "0.28.2",
+    "prettier": "3.9.10",
+    "typescript": "7.0.2"
+  }
+}

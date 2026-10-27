@@ -18,10 +18,24 @@ if TYPE_CHECKING:
 
 TO_REDACT = {
     "device_id",
+    "name",
+    "name_by_user",
+    "entry_title",
+    "entity_id",
+    "D01-03",
+    "D01S03",
+    "D01-05",
+    "D01S05",
+    "D01-21",
+    "D01S21",
     "DeviceId",
     "device_serial",
     "serial_number",
     "mac",
+    "macaddress",
+    "mac_address",
+    "MacAddress",
+    "MAC",
     "ip_address",
     "host",
     "ssid",
@@ -80,7 +94,7 @@ async def async_get_config_entry_diagnostics(
             "state": entry.state.value,
         },
         "coordinator": {
-            "client_available": True,
+            "client_available": coordinator.last_update_success,
             "has_data": len(status) > 0,
             "status_keys": list(status.keys()),
         },
@@ -112,6 +126,5 @@ async def async_get_config_entry_diagnostics(
 
     return cast(
         dict[str, Any],
-        # pyright: ignore[reportUnknownMemberType]
-        redact_helper.async_redact_data(diagnostics_data, TO_REDACT),
+        redact_helper.async_redact_data(diagnostics_data, TO_REDACT),  # pyright: ignore[reportUnknownMemberType]
     )

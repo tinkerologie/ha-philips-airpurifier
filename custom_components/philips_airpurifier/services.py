@@ -161,7 +161,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
     for service_name, (handler, schema) in services.items():
         if not hass.services.has_service(DOMAIN, service_name):
-            hass.services.async_register(DOMAIN, service_name, handler, schema=schema)
+            hass.services.async_register(DOMAIN, service_name, handler, schema=schema)  # pyright: ignore[reportUnknownMemberType]
 
 
 async def _reset_filter_counters(

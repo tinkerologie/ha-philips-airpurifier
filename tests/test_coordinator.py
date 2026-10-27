@@ -1145,3 +1145,101 @@ def test_nudge_snapshot_does_not_record_resting_value(hass: HomeAssistant) -> No
     coordinator.async_set_updated_data({**_CX_STATUS, "D03105": 115})
 
     assert coordinator.nudge_resting_values == {}
+
+
+async def test_first_refresh_uses_cache_with_watchdog_disabled(hass: HomeAssistant) -> None:
+    """Cached startup does not open a second CoAP status request."""
+    coordinator = _make_coordinator(hass, update_watchdog_enabled=False)
+    coordinator.async_set_updated_data({"pwr": "1"})
+    with patch.object(coordinator, "_start_observing") as observe:
+        await coordinator.async_first_refresh_and_observe()
+    observe.assert_called_once()
+    coordinator.client.get_status.assert_not_called()
+    assert coordinator.data == {"pwr": "1"}
+    assert coordinator.last_update_success
+
+
+async def test_shutdown_is_idempotent(hass: HomeAssistant) -> None:
+    """HA unloading and setup cleanup may both request shutdown."""
+    coordinator = _make_coordinator(hass)
+    await coordinator.async_shutdown()
+    await coordinator.async_shutdown()
+    coordinator.client.shutdown.assert_awaited_once()
+
+
+async def test_concurrent_shutdown_waits_and_closes_once(hass: HomeAssistant) -> None:
+    """Concurrent lifecycle callbacks share one bounded cleanup."""
+    coordinator = _make_coordinator(hass)
+    await asyncio.gather(coordinator.async_shutdown(), coordinator.async_shutdown())
+    coordinator.client.shutdown.assert_awaited_once()
+    assert coordinator._shutdown_complete
+    with pytest.raises(HomeAssistantError):
+        await coordinator.async_set_control_value("pwr", "1")
+    coordinator.client.set_control_values.assert_not_called()
+
+
+async def test_no_observation_or_reconnect_after_shutdown(hass: HomeAssistant) -> None:
+    """A late observation dispatch cannot revive an unloaded device."""
+    coordinator = _make_coordinator(hass)
+    await coordinator.async_shutdown()
+    with patch.object(hass, "async_create_background_task") as create:
+        coordinator._start_observing()
+        await coordinator._async_reconnect()
+    create.assert_not_called()
+
+
+async def test_intentionally_cancelled_observation_does_not_reconnect(hass: HomeAssistant) -> None:
+    """Replacing an observation must not race a reconnect of its own."""
+    coordinator = _make_coordinator(hass)
+
+    async def cancelled_stream():
+        raise asyncio.CancelledError
+        yield {}
+
+    coordinator.client.observe_status = MagicMock(return_value=cancelled_stream())
+    with patch.object(hass, "async_create_background_task") as create:
+        with pytest.raises(asyncio.CancelledError):
+            await coordinator._async_observe_status()
+    create.assert_not_called()
+
+
+async def test_shutdown_closes_client_with_cancellation_resistant_task(hass: HomeAssistant) -> None:
+    """Device socket cleanup cannot wait forever for an observation task."""
+    coordinator = _make_coordinator(hass)
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def resistant():
+        started.set()
+        try:
+            await release.wait()
+        except asyncio.CancelledError:
+            await release.wait()
+
+    task = hass.async_create_background_task(resistant(), "test_resistant_observation")
+    await started.wait()
+    coordinator._observe_task = task
+    with patch("custom_components.philips_airpurifier.coordinator.SHUTDOWN_TIMEOUT", 0.01):
+        await coordinator.async_shutdown()
+    coordinator.client.shutdown.assert_awaited_once()
+    release.set()
+    await task
+
+
+@pytest.mark.parametrize("model", [TEST_MODEL, "CX7550"])
+async def test_replacement_client_closed_when_shutdown_wins(hass: HomeAssistant, model: str) -> None:
+    """A late client connection is closed without reactivating observation."""
+    coordinator = _make_coordinator(hass, model=model)
+    replacement = AsyncMock()
+
+    async def create(*args, **kwargs):
+        coordinator._shutting_down = True
+        return replacement
+
+    with (
+        patch("custom_components.philips_airpurifier.coordinator.async_create_client", side_effect=create),
+        patch.object(coordinator, "_async_nudge_fetch", return_value={"pwr": "1"}),
+    ):
+        await coordinator._do_reconnect()
+    replacement.shutdown.assert_awaited_once()
+    assert coordinator.client is not replacement

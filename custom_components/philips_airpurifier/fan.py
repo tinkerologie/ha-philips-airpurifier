@@ -43,7 +43,7 @@ async def async_setup_entry(
         async_add_entities([PhilipsFan(coordinator)])
 
 
-class PhilipsFan(PhilipsAirPurifierEntity, FanEntity):  # pragma: no cover
+class PhilipsFan(PhilipsAirPurifierEntity, FanEntity):  # pragma: no cover  # pyright: ignore[reportIncompatibleVariableOverride]
     """Philips AirPurifier fan entity."""
 
     _attr_translation_key = "pap"
@@ -123,12 +123,12 @@ class PhilipsFan(PhilipsAirPurifierEntity, FanEntity):  # pragma: no cover
         self._handle_coordinator_update()
 
     @property
-    def preset_modes(self) -> list[str]:
+    def preset_modes(self) -> list[str]:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the supported preset modes."""
         return list(self._preset_modes_map.keys())
 
     @property
-    def preset_mode(self) -> str | None:
+    def preset_mode(self) -> str | None:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the current preset mode."""
         for preset_mode, status_pattern in self._preset_modes_map.items():
             for k, v in status_pattern.items():
@@ -147,12 +147,12 @@ class PhilipsFan(PhilipsAirPurifierEntity, FanEntity):  # pragma: no cover
             self._handle_coordinator_update()
 
     @property
-    def speed_count(self) -> int:
+    def speed_count(self) -> int:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the number of speed options."""
         return len(self._speeds_list)
 
     @property
-    def percentage(self) -> int | None:
+    def percentage(self) -> int | None:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the current speed as a percentage."""
         for speed, status_pattern in self._speeds_map.items():
             for k, v in status_pattern.items():
@@ -176,7 +176,7 @@ class PhilipsFan(PhilipsAirPurifierEntity, FanEntity):  # pragma: no cover
             self._handle_coordinator_update()
 
     @property
-    def oscillating(self) -> bool | None:  # pragma: no cover
+    def oscillating(self) -> bool | None:  # pragma: no cover  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return if the fan is oscillating."""
         if self._oscillation_key is None or self._oscillation_values is None:  # pragma: no cover
             return None

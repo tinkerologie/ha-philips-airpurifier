@@ -7,7 +7,7 @@ import contextlib
 import importlib
 import logging
 import os
-from typing import Any, cast
+from typing import Any
 import warnings
 
 from philips_airctrl import CoAPClient
@@ -57,9 +57,8 @@ def _preload_aiocoap_client_transports(transports: str | None) -> None:
 def _resolve_aiocoap_client_transport_env() -> str | None:
     """Resolve aiocoap client transports as an env-var value."""
     with contextlib.suppress(Exception):
-        from aiocoap import defaults
-
-        defaults_any = cast(Any, defaults)
+        # aiocoap does not ship stubs; keep this optional preload boundary dynamic.
+        defaults_any: Any = importlib.import_module("aiocoap.defaults")
         raw_transports = defaults_any.get_default_clienttransports(use_env=True)
         transports = tuple(str(transport) for transport in raw_transports)
         if transports:

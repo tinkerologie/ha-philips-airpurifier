@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Verify the declared minimum without replacing the normal development environment.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+./script/ha-version-sync
+minimum_venv=".local/ha-minimum-2026.9.0"
+if [[ ! -x "$minimum_venv/bin/python" ]]; then
+    uv venv "$minimum_venv" --python 3.14
+fi
+uv --no-config pip install --python "$minimum_venv/bin/python" --requirement requirements_test_min.txt
+"$minimum_venv/bin/python" script/.lib/test_minimum.py "$@"

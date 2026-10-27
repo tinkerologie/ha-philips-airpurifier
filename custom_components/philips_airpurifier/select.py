@@ -97,7 +97,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class PhilipsSelect(PhilipsAirPurifierEntity, SelectEntity):
+class PhilipsSelect(PhilipsAirPurifierEntity, SelectEntity):  # pyright: ignore[reportIncompatibleVariableOverride]
     """Philips AirPurifier select."""
 
     def __init__(
@@ -121,7 +121,7 @@ class PhilipsSelect(PhilipsAirPurifierEntity, SelectEntity):
         self.kind = kind.partition("#")[0]
 
     @property
-    def current_option(self) -> str | None:
+    def current_option(self) -> str | None:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the currently selected option, or None if the value is unknown."""
         option = self._device_status.get(self.kind)
         selected_option = self._options.get(option)
@@ -151,7 +151,7 @@ class PhilipsSelect(PhilipsAirPurifierEntity, SelectEntity):
             _LOGGER.exception("Invalid value for option: '%s'", option)
 
 
-class PhilipsFanModeSelect(PhilipsAirPurifierEntity, SelectEntity):
+class PhilipsFanModeSelect(PhilipsAirPurifierEntity, SelectEntity):  # pyright: ignore[reportIncompatibleVariableOverride]
     """Philips AirPurifier fan mode select for automations."""
 
     def __init__(self, coordinator: PhilipsAirPurifierCoordinator) -> None:
@@ -166,7 +166,7 @@ class PhilipsFanModeSelect(PhilipsAirPurifierEntity, SelectEntity):
         self._attr_unique_id = f"{coordinator.model}-{coordinator.device_id}-{FAN_MODE_KIND}"
 
     @property
-    def current_option(self) -> str:
+    def current_option(self) -> str:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the currently selected fan mode."""
         for option, status_pattern in self._preset_modes_map.items():
             for key, expected_value in status_pattern.items():

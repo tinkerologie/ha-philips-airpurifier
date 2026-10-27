@@ -36,6 +36,8 @@ if TYPE_CHECKING:
     )
 
 DOMAIN = "philips_airpurifier"
+FRONTEND_URL_BASE = "/philips_airpurifier_frontend"
+FRONTEND_FILENAME = "philips-airpurifier-cards.js"
 MANUFACTURER = "Philips"
 
 DATA_KEY_CLIENT = "client"
@@ -282,6 +284,7 @@ class FanAttributes(StrEnum):
     PREFIX = "prefix"
     POSTFIX = "postfix"
     ICON_MAP = "icon_map"
+    ENABLED_DEFAULT = "entity_registry_enabled_default"
     WARN_VALUE = "warn_value"
     WARN_ICON = "warn_icon"
     RSSI = "rssi"
@@ -651,7 +654,6 @@ SENSOR_TYPES: dict[str, SensorDescription] = {
         # validation warning on every state update). See issue #29.
         FanAttributes.LABEL: FanAttributes.TOTAL_VOLATILE_ORGANIC_COMPOUNDS,
         ATTR_STATE_CLASS: SensorStateClass.MEASUREMENT,
-        FanAttributes.ICON_MAP: {0: "mdi:blur"},
     },
     PhilipsApi.HUMIDITY: {
         ATTR_DEVICE_CLASS: SensorDeviceClass.HUMIDITY,
@@ -672,29 +674,19 @@ SENSOR_TYPES: dict[str, SensorDescription] = {
         FanAttributes.UNIT: UnitOfTime.MINUTES,
     },
     PhilipsApi.NEW2_FAN_SPEED: {
-        FanAttributes.ICON_MAP: {0: "mdi:fan"},
         FanAttributes.LABEL: FanAttributes.SPEED,
+        FanAttributes.ENABLED_DEFAULT: False,
         ATTR_STATE_CLASS: SensorStateClass.MEASUREMENT,
         CONF_ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
     },
     PhilipsApi.TEMPERATURE: {
         ATTR_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
-        FanAttributes.ICON_MAP: {
-            0: "mdi:thermometer-low",
-            17: "mdi:thermometer",
-            23: "mdi:thermometer-high",
-        },
         FanAttributes.LABEL: ATTR_TEMPERATURE,
         ATTR_STATE_CLASS: SensorStateClass.MEASUREMENT,
         FanAttributes.UNIT: UnitOfTemperature.CELSIUS,
     },
     PhilipsApi.NEW2_TEMPERATURE: {
         ATTR_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
-        FanAttributes.ICON_MAP: {
-            0: "mdi:thermometer-low",
-            17: "mdi:thermometer",
-            23: "mdi:thermometer-high",
-        },
         FanAttributes.LABEL: ATTR_TEMPERATURE,
         FanAttributes.VALUE: _to_celsius_from_tenths,
         ATTR_STATE_CLASS: SensorStateClass.MEASUREMENT,
@@ -702,7 +694,6 @@ SENSOR_TYPES: dict[str, SensorDescription] = {
     },
     # diagnostic information
     PhilipsApi.WATER_LEVEL: {
-        FanAttributes.ICON_MAP: {0: "mdi:water-alert", 10: "mdi:water"},
         FanAttributes.LABEL: FanAttributes.WATER_LEVEL,
         FanAttributes.VALUE: _water_level_value,
         ATTR_STATE_CLASS: SensorStateClass.MEASUREMENT,
@@ -710,23 +701,16 @@ SENSOR_TYPES: dict[str, SensorDescription] = {
         CONF_ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
     },
     PhilipsApi.RSSI: {
-        FanAttributes.ICON_MAP: {
-            -150: "mdi:wifi-strength-off-outline",
-            -90: "mdi:wifi-strength-outline",
-            -80: "mdi:wifi-strength-1",
-            -70: "mdi:wifi-strength-2",
-            -67: "mdi:wifi-strength-3",
-            -30: "mdi:wifi-strength-4",
-        },
         FanAttributes.LABEL: FanAttributes.RSSI,
+        FanAttributes.ENABLED_DEFAULT: False,
         ATTR_STATE_CLASS: SensorStateClass.MEASUREMENT,
         ATTR_DEVICE_CLASS: SensorDeviceClass.SIGNAL_STRENGTH,
         FanAttributes.UNIT: SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
         CONF_ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
     },
     PhilipsApi.RUNTIME: {
-        FanAttributes.ICON_MAP: {0: "mdi:timer"},
         FanAttributes.LABEL: FanAttributes.RUNTIME,
+        FanAttributes.ENABLED_DEFAULT: False,
         FanAttributes.VALUE: _runtime_hours,
         ATTR_STATE_CLASS: SensorStateClass.TOTAL,
         ATTR_DEVICE_CLASS: SensorDeviceClass.DURATION,
@@ -775,61 +759,43 @@ BINARY_SENSOR_TYPES: dict[str, SensorDescription] = {
 
 FILTER_TYPES: dict[str, FilterDescription] = {
     PhilipsApi.FILTER_PRE: {
-        FanAttributes.ICON_MAP: {0: "mdi:air-filter", 72: "mdi:dots-grid"},
         FanAttributes.LABEL: FanAttributes.FILTER_PRE,
         FanAttributes.TOTAL: PhilipsApi.FILTER_PRE_TOTAL,
         FanAttributes.TYPE: PhilipsApi.FILTER_PRE_TYPE,
     },
     PhilipsApi.FILTER_HEPA: {
-        FanAttributes.ICON_MAP: {0: "mdi:air-filter", 72: "mdi:dots-grid"},
         FanAttributes.LABEL: FanAttributes.FILTER_HEPA,
         FanAttributes.TOTAL: PhilipsApi.FILTER_HEPA_TOTAL,
         FanAttributes.TYPE: PhilipsApi.FILTER_HEPA_TYPE,
     },
     PhilipsApi.FILTER_ACTIVE_CARBON: {
-        FanAttributes.ICON_MAP: {0: "mdi:air-filter", 72: "mdi:dots-grid"},
         FanAttributes.LABEL: FanAttributes.FILTER_ACTIVE_CARBON,
         FanAttributes.TOTAL: PhilipsApi.FILTER_ACTIVE_CARBON_TOTAL,
         FanAttributes.TYPE: PhilipsApi.FILTER_ACTIVE_CARBON_TYPE,
     },
     PhilipsApi.FILTER_WICK: {
-        FanAttributes.ICON_MAP: {0: "mdi:broom", 72: "mdi:dots-grid"},
         FanAttributes.LABEL: FanAttributes.FILTER_WICK,
         FanAttributes.TOTAL: PhilipsApi.FILTER_WICK_TOTAL,
         FanAttributes.TYPE: PhilipsApi.FILTER_WICK_TYPE,
     },
     PhilipsApi.FILTER_NANOPROTECT: {
-        FanAttributes.ICON_MAP: {
-            0: "mdi:air-filter",
-            10: "mdi:air-filter",
-        },
         FanAttributes.LABEL: FanAttributes.FILTER_NANOPROTECT,
         FanAttributes.TOTAL: PhilipsApi.FILTER_NANOPROTECT_TOTAL,
         FanAttributes.TYPE: PhilipsApi.FILTER_NANOPROTECT_TYPE,
     },
     PhilipsApi.FILTER_NANOPROTECT_PREFILTER: {
-        FanAttributes.ICON_MAP: {
-            0: "mdi:broom",
-            10: "mdi:air-filter",
-        },
+        "translation_key": "pre_filter_cleaning",
         FanAttributes.LABEL: FanAttributes.FILTER_NANOPROTECT_CLEAN,
         FanAttributes.TOTAL: PhilipsApi.FILTER_NANOPROTECT_CLEAN_TOTAL,
         FanAttributes.TYPE: "",
     },
     PhilipsApi.NEW2_FILTER_NANOPROTECT: {
-        FanAttributes.ICON_MAP: {
-            0: "mdi:air-filter",
-            10: "mdi:air-filter",
-        },
         FanAttributes.LABEL: FanAttributes.FILTER_NANOPROTECT,
         FanAttributes.TOTAL: PhilipsApi.NEW2_FILTER_NANOPROTECT_TOTAL,
         FanAttributes.TYPE: "",
     },
     PhilipsApi.NEW2_FILTER_NANOPROTECT_PREFILTER: {
-        FanAttributes.ICON_MAP: {
-            0: "mdi:broom",
-            10: "mdi:air-filter",
-        },
+        "translation_key": "pre_filter_cleaning",
         FanAttributes.LABEL: FanAttributes.FILTER_NANOPROTECT_CLEAN,
         FanAttributes.TOTAL: PhilipsApi.NEW2_FILTER_NANOPROTECT_PREFILTER_TOTAL,
         FanAttributes.TYPE: "",

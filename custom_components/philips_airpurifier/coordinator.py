@@ -19,8 +19,9 @@ from .device_models import DEVICE_MODELS
 from .model import ApiGeneration, DeviceInformation, DeviceModelConfig
 
 if TYPE_CHECKING:
-    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
+
+    from . import PhilipsAirPurifierConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -67,7 +68,7 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         missed_package_count_override: int | None = None,
         missed_package_count: int | None = None,
         *,
-        config_entry: ConfigEntry | None = None,
+        config_entry: PhilipsAirPurifierConfigEntry | None = None,
         last_nudge_values: Mapping[str, Any] | None = None,
     ) -> None:
         """Initialize the coordinator."""
@@ -108,6 +109,9 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._reconnect_started: float | None = None
         self._device_available = True
         self._shutting_down: bool = False
+        self._shutdown_complete = False
+        self._shutdown_lock = asyncio.Lock()
+        self._reconnect_dispatch_task: asyncio.Task[None] | None = None
 
     def _mark_unavailable(self, reason: str) -> None:
         """Mark the device unavailable and log transition once."""
@@ -187,6 +191,12 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def async_set_control_values(self, values: dict[str, Any]) -> None:
         """Set multiple control values on the device."""
+        if self._shutting_down:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="command_failed",
+                translation_placeholders={"host": self.host},
+            )
         try:
             await asyncio.wait_for(self.client.set_control_values(data=values), timeout=COAP_CALL_TIMEOUT)
         except Exception as err:
@@ -276,7 +286,11 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         with contextlib.suppress(Exception):
             await asyncio.wait_for(self.client.shutdown(), timeout=SHUTDOWN_TIMEOUT)
         status = await self._async_nudge_fetch()
-        self.client = await async_create_client(self.host, create_client=CoAPClient.create)
+        replacement = await async_create_client(self.host, create_client=CoAPClient.create)
+        if self._shutting_down:
+            await asyncio.wait_for(replacement.shutdown(), timeout=SHUTDOWN_TIMEOUT)
+            return
+        self.client = replacement
         self._timeout = DEFAULT_TIMEOUT
         self._last_update = asyncio.get_event_loop().time()
         self._mark_available()
@@ -309,6 +323,8 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     def _start_observing(self) -> None:
         """Start observing device status via CoAP push."""
+        if self._shutting_down:
+            return
         if self._observe_task is not None:
             self._observe_task.cancel()
 
@@ -330,6 +346,7 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_observe_status(self) -> None:
         """Observe device status via CoAP push updates."""
+        reconnect = True
         try:
             async for status in self.client.observe_status():
                 self._last_update = asyncio.get_event_loop().time()
@@ -337,6 +354,7 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self._record_nudge_resting_values(status)
                 self.async_set_updated_data(status)
         except asyncio.CancelledError:
+            reconnect = False
             raise
         except Exception:
             _LOGGER.debug(
@@ -344,8 +362,8 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.host,
             )
         finally:
-            if not self._shutting_down:
-                self.hass.async_create_background_task(
+            if reconnect and not self._shutting_down:
+                self._reconnect_dispatch_task = self.hass.async_create_background_task(
                     self._async_reconnect(),
                     f"philips_airpurifier_reconnect_{self.host}",
                 )
@@ -370,6 +388,8 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_reconnect(self) -> None:
         """Reconnect to the device."""
+        if self._shutting_down:
+            return
         if self._reconnect_task is not None and not self._reconnect_task.done():
             age = (
                 asyncio.get_event_loop().time() - self._reconnect_started
@@ -431,7 +451,11 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 # temporary connection, so it (re)creates one after the nudge.
                 await self._async_refresh_via_nudge()
             else:
-                self.client = await async_create_client(self.host, create_client=CoAPClient.create)
+                replacement = await async_create_client(self.host, create_client=CoAPClient.create)
+                if self._shutting_down:
+                    await asyncio.wait_for(replacement.shutdown(), timeout=SHUTDOWN_TIMEOUT)
+                    return
+                self.client = replacement
                 # One-shot read before re-establishing the observe stream.
                 status, timeout = await asyncio.wait_for(
                     self.client.get_status(observe=False), timeout=COAP_CALL_TIMEOUT
@@ -465,7 +489,8 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 await self._async_refresh_via_nudge()
                 _LOGGER.debug("First refresh (via nudge) completed for %s", self.host)
             except Exception as err:
-                self._mark_unavailable("initial nudge refresh failed")
+                self.last_update_success = False
+                self._device_available = False
                 raise self._not_ready_error() from err
             self._start_observing()
             return
@@ -485,35 +510,49 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.async_set_updated_data(status)
             _LOGGER.debug("First refresh completed for %s", self.host)
         except Exception as err:
-            self._mark_unavailable("initial refresh failed")
+            self.last_update_success = False
+            self._device_available = False
             raise self._not_ready_error() from err
 
         self._last_update = asyncio.get_event_loop().time()
         self._start_observing()
 
     async def async_shutdown(self) -> None:
-        """Shut down the coordinator."""
-        self._shutting_down = True
-
-        tasks_to_cancel: list[asyncio.Task[None]] = []
-        for task in (
-            self._observe_task,
-            self._watchdog_task,
-            self._reconnect_task,
-            self._reconnect_retry_task,
-        ):
-            if task is not None and not task.done():
+        """Release the client once, even when shutdown callers overlap."""
+        async with self._shutdown_lock:
+            if self._shutdown_complete:
+                return
+            self._shutting_down = True
+            tasks = [
+                task
+                for task in (
+                    self._observe_task,
+                    self._watchdog_task,
+                    self._reconnect_task,
+                    self._reconnect_retry_task,
+                    self._reconnect_dispatch_task,
+                )
+                if task is not None and not task.done()
+            ]
+            for task in tasks:
                 task.cancel()
-                tasks_to_cancel.append(task)
-
-        self._observe_task = None
-        self._watchdog_task = None
-        self._reconnect_task = None
-        self._reconnect_retry_task = None
-
-        for task in tasks_to_cancel:
-            with contextlib.suppress(asyncio.CancelledError):
-                await task
-
-        with contextlib.suppress(Exception):
-            await asyncio.wait_for(self.client.shutdown(), timeout=SHUTDOWN_TIMEOUT)
+            try:
+                await super().async_shutdown()
+                if tasks:
+                    done, pending = await asyncio.wait(tasks, timeout=SHUTDOWN_TIMEOUT)
+                    for task in done:
+                        with contextlib.suppress(asyncio.CancelledError, Exception):
+                            task.result()
+                    if pending:
+                        _LOGGER.debug("%d device task(s) did not stop before shutdown timeout", len(pending))
+            finally:
+                try:
+                    with contextlib.suppress(Exception):
+                        await asyncio.wait_for(self.client.shutdown(), timeout=SHUTDOWN_TIMEOUT)
+                finally:
+                    self._observe_task = None
+                    self._watchdog_task = None
+                    self._reconnect_task = None
+                    self._reconnect_retry_task = None
+                    self._reconnect_dispatch_task = None
+                    self._shutdown_complete = True

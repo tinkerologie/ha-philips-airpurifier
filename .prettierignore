@@ -3,3 +3,8 @@ config/
 !config/configuration.yaml
 custom_components/
 !custom_components/philips_airpurifier/
+
+custom_components/philips_airpurifier/frontend/
+frontend/node_modules/
+.ai-scratch/
+.local/

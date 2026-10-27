@@ -13,6 +13,7 @@ dev = [
     "pytest",
     "pytest-asyncio",
     "pytest-cov",
+    "infrared-protocols",  # Imported by the current hassfest device-class validator.
     # Linting/formatting and type checking. Required by scripts/lint,
     # scripts/lint-check, scripts/type-check and the lint CI workflow, which all
     # invoke `uv run ruff` / `uv run pyright`. ruff is pinned to the
@@ -29,7 +30,7 @@ dev = [
     # unpinned so the resolver selects the release whose pinned HA matches the
     # floor (the newest phacc targets pre-release HA). Dependabot (homeassistant
     # group) bumps the floor on every stable HA release.
-    "homeassistant>=2026.8.1",
+    "homeassistant>=2026.9.0",
     "pytest-homeassistant-custom-component",
 ]
 

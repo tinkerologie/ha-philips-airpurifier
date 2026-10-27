@@ -23,6 +23,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.device_registry import format_mac
 from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
 
+from . import PhilipsAirPurifierConfigEntry
 from .client import (
     async_fetch_device_info,
     async_fetch_status,
@@ -66,7 +67,7 @@ class PhilipsAirPurifierConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(
-        config_entry: config_entries.ConfigEntry,
+        config_entry: PhilipsAirPurifierConfigEntry,
     ) -> config_entries.OptionsFlow:
         """Create the options flow."""
         return PhilipsAirPurifierOptionsFlow()
@@ -147,7 +148,7 @@ class PhilipsAirPurifierConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             _LOGGER.warning("Nudge-based status read failed for %s: %s", host, ex)
             return None
 
-    def _async_find_matching_entry(self) -> config_entries.ConfigEntry | None:
+    def _async_find_matching_entry(self) -> PhilipsAirPurifierConfigEntry | None:
         """Find an existing entry for the discovered device by MAC or host."""
         for entry in self._async_current_entries(include_ignore=False):
             if self._mac and entry.data.get(CONF_MAC) == self._mac:
@@ -156,7 +157,7 @@ class PhilipsAirPurifierConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return entry
         return None
 
-    def _async_update_existing_entry(self, entry: config_entries.ConfigEntry) -> None:
+    def _async_update_existing_entry(self, entry: PhilipsAirPurifierConfigEntry) -> None:
         """Update host and MAC of an existing entry from discovery info."""
         updates: dict[str, Any] = {CONF_HOST: self._host}
         if self._mac:

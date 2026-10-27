@@ -471,3 +471,15 @@ async def test_humidifier_set_humidity_without_existing_target_uses_input(
     await humidifier_entity.async_set_humidity(46)
 
     mock_humidifier_coap_client.set_control_values.assert_called_with(data={"rhset": 50})
+
+
+async def test_humidifier_publishes_model_specific_target_step(
+    hass: HomeAssistant,
+    init_hu_integration: MockConfigEntry,
+) -> None:
+    """Standalone humidifiers expose their actual five-percent target steps."""
+    entity_id = _get_humidifier_entity_id(hass, init_hu_integration)
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.attributes["target_humidity_step"] == 5
+    assert state.attributes["min_humidity"] == 30
