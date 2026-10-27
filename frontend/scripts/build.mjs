@@ -13,9 +13,10 @@ const result = await build({
 await mkdir(outdir, { recursive: true });
 await writeFile(new URL("philips-airpurifier-cards.js", outdir), result.outputFiles[0].text.trimEnd() + "\n");
 
-// HACS ships this directory, so retain the runtime dependency's license terms.
-await writeFile(
-  new URL("THIRD_PARTY_LICENSES.txt", outdir),
-  "Bundled runtime: lit, lit-html and @lit/reactive-element\n\n" +
-    (await readFile(new URL("../node_modules/lit/LICENSE", import.meta.url), "utf8"))
+// HACS ships this directory, so retain each runtime package's license terms.
+const runtimeLicenses = await Promise.all(
+  ["lit", "lit-html", "@lit/reactive-element"].map(
+    async (name) => `${name}\n${await readFile(new URL(`../node_modules/${name}/LICENSE`, import.meta.url), "utf8")}`
+  )
 );
+await writeFile(new URL("THIRD_PARTY_LICENSES.txt", outdir), runtimeLicenses.join("\n\n"));
