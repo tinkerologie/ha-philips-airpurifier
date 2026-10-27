@@ -1,5 +1,5 @@
 import { LitElement, html, nothing, type PropertyValues } from "lit";
-import { activeDevice, deviceIds, resolve } from "./discovery";
+import { activeDevice, capability, deviceIds, resolve } from "./discovery";
 import { styles } from "./styles";
 import type { Capability, CardConfig, HomeAssistant, Role } from "./types";
 export abstract class PhilipsAirPurifierBaseCard extends LitElement {
@@ -119,7 +119,8 @@ export abstract class PhilipsAirPurifierBaseCard extends LitElement {
     this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId: id }, bubbles: true, composed: true }));
   }
   protected async action(c: Capability, service: string, data: Record<string, unknown> = {}): Promise<void> {
-    if (!this.hass || this.busy || c.availability !== "available") return;
+    // Re-read availability: a dialog may hold a capability captured earlier.
+    if (!this.hass || this.busy || capability(this.hass, c.id).availability !== "available") return;
     this.busy = true;
     this.error = "";
     try {

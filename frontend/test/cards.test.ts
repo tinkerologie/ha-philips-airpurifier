@@ -527,4 +527,53 @@ describe("Philips dashboard cards", () => {
     await element.updateComplete;
     expect(root.querySelector(".trend-button")?.className).contains("band-very_poor");
   });
+  it("blocks applying a sheet once its device goes offline", async () => {
+    const { element, hass, root, calls } = await card(purifier);
+    (root.querySelector(".mode-button") as HTMLButtonElement).click();
+    await element.updateComplete;
+    expect((root.querySelector(".apply") as HTMLButtonElement).disabled).eq(false);
+    const online = { ...hass.states["fan.test"]! };
+    element.hass = { ...hass, states: { ...hass.states, "fan.test": { ...online, state: "unavailable" } } };
+    await element.updateComplete;
+    expect((root.querySelector(".apply") as HTMLButtonElement).disabled).eq(true);
+    // A capability captured while online must not send once the entity is offline.
+    const stale = { id: "fan.test", state: online, availability: "available" as const };
+    await (element as unknown as { action(c: typeof stale, s: string): Promise<void> }).action(stale, "turn_on");
+    expect(calls.length).eq(0);
+  });
+  it("refreshes the trend on a timer while connected", async () => {
+    const f = fixture();
+    let tick: (() => void) | undefined;
+    const realSet = window.setInterval;
+    const realClear = window.clearInterval;
+    let cleared = 0;
+    window.setInterval = ((fn: () => void) => {
+      tick = fn;
+      return 1;
+    }) as typeof window.setInterval;
+    window.clearInterval = (() => cleared++) as typeof window.clearInterval;
+    try {
+      let fetches = 0;
+      const element = document.createElement(air) as PhilipsAirPurifierAirQualityCard;
+      element.setConfig({ type: `custom:${air}`, device_id: "purifier" });
+      element.hass = {
+        ...f.hass,
+        callWS: async <T>() => {
+          fetches++;
+          return {} as T;
+        },
+      };
+      await mount(element);
+      await element.updateComplete;
+      expect(fetches).eq(1);
+      tick!();
+      await element.updateComplete;
+      expect(fetches).eq(2);
+      element.remove();
+      expect(cleared).eq(1);
+    } finally {
+      window.setInterval = realSet;
+      window.clearInterval = realClear;
+    }
+  });
 });

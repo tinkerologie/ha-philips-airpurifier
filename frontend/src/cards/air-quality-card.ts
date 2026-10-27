@@ -15,6 +15,7 @@ import {
 } from "../quality";
 import { fetchTrend, trendChart, type Point } from "../trend";
 import type { Capability, HomeAssistant, Role } from "../types";
+const TREND_REFRESH_MS = 900_000;
 export class PhilipsAirPurifierAirQualityCard extends PhilipsAirPurifierBaseCard {
   static override cardType = "philips-airpurifier-air-quality-card";
   static override editorTag = "philips-airpurifier-card-editor";
@@ -23,9 +24,22 @@ export class PhilipsAirPurifierAirQualityCard extends PhilipsAirPurifierBaseCard
   declare private trend: Point[];
   private trendKey = "";
   private trendAt = 0;
+  private refreshTimer?: ReturnType<typeof setInterval>;
   constructor() {
     super();
     this.trend = [];
+  }
+  override connectedCallback(): void {
+    super.connectedCallback();
+    // Stable readings skip re-renders, so refresh the 24-hour window on a timer too.
+    this.refreshTimer = setInterval(() => {
+      this.trendAt = 0;
+      this.requestUpdate();
+    }, TREND_REFRESH_MS);
+  }
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    clearInterval(this.refreshTimer);
   }
   static getStubConfig(hass: HomeAssistant) {
     return stubConfig(hass, this.cardType, "air");
@@ -39,7 +53,7 @@ export class PhilipsAirPurifierAirQualityCard extends PhilipsAirPurifierBaseCard
       return;
     }
     // Hourly statistics change slowly; refresh at most every 15 minutes.
-    if (this.trendKey === pm25.id && Date.now() - this.trendAt < 900_000) return;
+    if (this.trendKey === pm25.id && Date.now() - this.trendAt < TREND_REFRESH_MS) return;
     this.trendKey = pm25.id;
     this.trendAt = Date.now();
     fetchTrend(this.hass, pm25.id).then(

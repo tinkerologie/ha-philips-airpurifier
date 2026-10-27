@@ -22,6 +22,7 @@ interface Choice {
   icon?: TemplateResult;
 }
 interface Sheet {
+  entity: string;
   title: string;
   choices: Choice[];
   selected: string;
@@ -139,6 +140,7 @@ export class PhilipsAirPurifierPurifierCard extends PhilipsAirPurifierBaseCard {
               ?disabled=${disabled}
               @click=${(event: Event) =>
                 this.open(event, {
+                  entity: fan.id,
                   title: "Choose a mode",
                   selected: mode,
                   choices: presets.map((p) => ({ value: p, label: this.presetLabel(fan, p), icon: modeIcon(p) })),
@@ -211,6 +213,7 @@ export class PhilipsAirPurifierPurifierCard extends PhilipsAirPurifierBaseCard {
       fan.availability !== "available" ? this.value(fan) : on ? label(current) : "Off",
       (event: Event) =>
         this.open(event, {
+          entity: fan.id,
           title: "Fan speed",
           selected: current,
           choices,
@@ -234,6 +237,7 @@ export class PhilipsAirPurifierPurifierCard extends PhilipsAirPurifierBaseCard {
       this.value(select),
       (event: Event) =>
         this.open(event, {
+          entity: select.id,
           title: name === "Timer" ? "Set a timer" : `Choose ${name.toLowerCase()} mode`,
           selected: current,
           choices: options.map((o) => ({ value: o, label: this.optionLabel(select, o) })),
@@ -307,7 +311,12 @@ export class PhilipsAirPurifierPurifierCard extends PhilipsAirPurifierBaseCard {
       <div class="sheet-actions">
         <button
           class="apply"
-          ?disabled=${!sheet.choices.some((c) => c.value === sheet.selected)}
+          ?disabled=${
+            this.busy ||
+            this.hass?.states[sheet.entity]?.state === "unavailable" ||
+            !this.hass?.states[sheet.entity] ||
+            !sheet.choices.some((c) => c.value === sheet.selected)
+          }
           @click=${async () => {
             this.close();
             await sheet.apply(sheet.selected);
