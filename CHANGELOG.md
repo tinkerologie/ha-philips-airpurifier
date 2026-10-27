@@ -18,9 +18,25 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
   light, fan speed, light ring and timer). Cards use Home Assistant design tokens for spacing, type and radius.
 - Browser interaction tests and CI checks for frontend types, dependencies, and bundle freshness.
 
+- Connection lifecycle logging for local outages (#172, see also #51): reconnect failures
+  name the stage (create, status or nudge) and the error type, successful reconnects
+  report the attempt count and outage length, the watchdog warning reports its interval
+  and the pushes received, and a silent new observation is logged once.
+- A `connection` section in diagnostics with availability, observation session pushes,
+  reconnect state, backoff and the stage and type of the last reconnect error.
+
 ### Changed
 
 - Require Home Assistant 2026.9.0 or later in HACS.
+- The watchdog now checks one interval after the last push instead of on a fixed tick,
+  so an outage is detected about one interval after the device falls silent rather
+  than up to two. This improves detection accuracy only; it does not prevent outages.
+
+### Fixed
+
+- A replaced or cancelled observation stream can no longer request a reconnect, the old
+  observer is stopped before a reconnect closes its client, and a client whose status
+  read failed during reconnect is closed instead of staying open through the backoff.
 - Disable RSSI/runtime/speed diagnostics for new entity registrations; preserve existing user choices.
 - Move custom icons into frontend icon translations and redact identifying names in diagnostics.
 - Use Home Assistant entry lifecycle cleanup for CoAP resources, bound shutdown waits,

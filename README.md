@@ -275,6 +275,34 @@ Logs will be available in `home-assistant.log`.
 | Entities unavailable    | Check device firmware version, verify local API is enabled |
 | Integration not loading | Check Home Assistant logs, verify installation             |
 
+### Device answers ping and the app, but goes unavailable
+
+Some devices stop answering the local CoAP connection for a while, often at
+night, while they still answer ping and the Philips Air+ cloud app
+([#172](https://github.com/tinkerologie/ha-philips-airpurifier/issues/172)).
+The cause is not known yet. To help diagnose it, collect one night of evidence:
+
+1. Enable the three debug loggers above. Either add them to `configuration.yaml`
+   and restart, or call the `logger.set_level` action (no restart, resets on restart).
+2. Keep your current options (for example, watchdog on and your missed package count).
+3. Do not run another local CoAP client for the device, such as the `aioairctrl` CLI
+   or a second Home Assistant instance. It can take over the device's connection.
+   The cloud app and ping are fine; note when you use the app.
+4. If you can, download the device diagnostics once during an outage and once after
+   it recovers. The `connection` section shows the reconnect state and last error.
+5. In the morning, download the log from **Settings → System → Logs**, set the loggers
+   back to `warning`, and replace the device IP and names before sharing.
+
+How to read the log lines:
+
+| Log line                                             | Meaning                                                                                       |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `No updates from … for N seconds (watchdog interval` | No push for N seconds. The silence started N seconds before this line, not at this timestamp. |
+| `Reconnect … failed at the create stage`             | The device did not answer the connection handshake (sync).                                    |
+| `Reconnect … failed at the status stage`             | The handshake worked, but the status read got no answer.                                      |
+| `registered but no initial response`                 | The push subscription was sent, but the device never sent its first update.                   |
+| `Reconnected … after N attempt(s)`                   | Recovery succeeded after N attempts; the line shows how long the device was unavailable.      |
+
 ### Getting Help for Unsupported Models
 
 If your model isn't supported yet, you can help by providing device data:

@@ -98,6 +98,7 @@ async def async_get_config_entry_diagnostics(
             "has_data": len(status) > 0,
             "status_keys": list(status.keys()),
         },
+        "connection": coordinator.connection_diagnostics(),
         "entities": {
             "total": len(entities),
             "details": [

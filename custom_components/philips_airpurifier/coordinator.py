@@ -54,6 +54,10 @@ SHUTDOWN_TIMEOUT = 10
 # immediately and neither the success nor the failure branch is ever reached.
 RECONNECT_TASK_MAX = 120
 
+# The deadline watchdog sleeps until the update window closes; this floor stops
+# a window that has just closed from turning into a busy loop.
+WATCHDOG_MIN_SLEEP = 1
+
 
 class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Coordinator to manage data from Philips AirPurifier via CoAP push."""
@@ -112,11 +116,26 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._shutdown_complete = False
         self._shutdown_lock = asyncio.Lock()
         self._reconnect_dispatch_task: asyncio.Task[None] | None = None
+        # Each observation session gets a generation. A cancelled or replaced
+        # observer compares its generation before requesting a reconnect, so a
+        # stale stream ending late cannot restart recovery (issue #172).
+        self._observe_generation = 0
+        self._session_started: float | None = None
+        self._session_first_push: float | None = None
+        self._session_pushes = 0
+        # Recovery bookkeeping, exported through diagnostics.
+        self._outage_started: float | None = None
+        self._reconnect_attempts = 0
+        self._consecutive_reconnect_failures = 0
+        # Stage and exception type only: exception text can carry the resolved
+        # device address, which must not reach diagnostics.
+        self._last_reconnect_error: dict[str, str] | None = None
 
     def _mark_unavailable(self, reason: str) -> None:
         """Mark the device unavailable and log transition once."""
         if self._device_available:
             _LOGGER.warning("Device at %s became unavailable: %s", self.host, reason)
+            self._outage_started = asyncio.get_event_loop().time()
             self._device_available = False
             self.last_update_success = False
             self.async_update_listeners()
@@ -128,6 +147,7 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.last_update_success = True
             self.async_update_listeners()
         self._device_available = True
+        self._outage_started = None
 
     def _update_failed_error(self) -> UpdateFailed:
         """Build the translated error raised when a status update fails."""
@@ -325,11 +345,17 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Start observing device status via CoAP push."""
         if self._shutting_down:
             return
+        # Bump the generation before cancelling, so the old observer's
+        # finally block sees it has been replaced and stays quiet.
+        self._observe_generation += 1
         if self._observe_task is not None:
             self._observe_task.cancel()
+        self._session_started = None
+        self._session_first_push = None
+        self._session_pushes = 0
 
         self._observe_task = self.hass.async_create_background_task(
-            self._async_observe_status(),
+            self._async_observe_status(self._observe_generation),
             f"philips_airpurifier_observe_{self.host}",
         )
 
@@ -344,46 +370,106 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             f"philips_airpurifier_watchdog_{self.host}",
         )
 
-    async def _async_observe_status(self) -> None:
+    async def _async_stop_observer(self) -> None:
+        """Retire the current observer and wait briefly for it to finish."""
+        self._observe_generation += 1
+        task, self._observe_task = self._observe_task, None
+        if task is None or task.done():
+            return
+        task.cancel()
+        # asyncio.wait never raises the old task's CancelledError, while a
+        # cancellation of this task still propagates.
+        await asyncio.wait({task}, timeout=SHUTDOWN_TIMEOUT)
+        if task.done() and not task.cancelled():
+            task.exception()
+
+    def _check_first_push(self, generation: int) -> None:
+        """Log once when an observation has been registered but stays silent."""
+        if generation == self._observe_generation and self._session_pushes == 0:
+            _LOGGER.info(
+                "Observation of %s registered but no initial response after %d seconds",
+                self.host,
+                COAP_CALL_TIMEOUT,
+            )
+
+    async def _async_observe_status(self, generation: int | None = None) -> None:
         """Observe device status via CoAP push updates."""
+        if generation is None:
+            generation = self._observe_generation
+        loop = asyncio.get_event_loop()
+        self._session_started = loop.time()
+        # Diagnostic only: this never starts recovery on its own.
+        first_push_check = loop.call_later(COAP_CALL_TIMEOUT, self._check_first_push, generation)
         reconnect = True
         try:
             async for status in self.client.observe_status():
-                self._last_update = asyncio.get_event_loop().time()
+                now = loop.time()
+                if generation == self._observe_generation:
+                    self._session_pushes += 1
+                    if self._session_first_push is None:
+                        self._session_first_push = now
+                        first_push_check.cancel()
+                        _LOGGER.debug(
+                            "First observation push from %s after %.1f seconds",
+                            self.host,
+                            now - self._session_started,
+                        )
+                self._last_update = now
                 self._mark_available()
                 self._record_nudge_resting_values(status)
                 self.async_set_updated_data(status)
+            _LOGGER.debug("Observation stream for %s ended without an error, triggering reconnect", self.host)
         except asyncio.CancelledError:
             reconnect = False
             raise
-        except Exception:
+        except Exception as err:
             _LOGGER.debug(
-                "Observation stream ended for %s, triggering reconnect",
+                "Observation stream for %s ended (%s: %s), triggering reconnect",
                 self.host,
+                type(err).__name__,
+                err,
             )
         finally:
-            if reconnect and not self._shutting_down:
+            first_push_check.cancel()
+            if reconnect and not self._shutting_down and generation == self._observe_generation:
                 self._reconnect_dispatch_task = self.hass.async_create_background_task(
                     self._async_reconnect(),
                     f"philips_airpurifier_reconnect_{self.host}",
                 )
 
+    def _watchdog_interval(self) -> int:
+        """Return how long the device may stay silent before reconnecting."""
+        return NUDGE_WATCHDOG_TIMEOUT if self._status_nudge_enabled else self._timeout * self.missed_package_count
+
     async def _async_watchdog(self) -> None:
-        """Watch for missed updates and trigger reconnect if needed."""
+        """Watch for missed updates and trigger reconnect if needed.
+
+        The watchdog sleeps until the update window after the last push closes,
+        rather than for a fixed period, so an outage is detected about one
+        interval after the device fell silent instead of up to two.
+        """
+        loop = asyncio.get_event_loop()
+        triggered_at = 0.0
         while True:
-            interval = (
-                NUDGE_WATCHDOG_TIMEOUT if self._status_nudge_enabled else self._timeout * self.missed_package_count
-            )
-            await asyncio.sleep(interval)
+            interval = self._watchdog_interval()
+            reference = max(self._last_update, triggered_at)
+            remaining = interval - (loop.time() - reference) if reference > 0 else interval
+            await asyncio.sleep(max(remaining, WATCHDOG_MIN_SLEEP))
             if self._last_update > 0:
-                elapsed = asyncio.get_event_loop().time() - self._last_update
+                now = loop.time()
+                elapsed = now - self._last_update
                 if elapsed > interval:
                     self._mark_unavailable("watchdog timeout")
                     _LOGGER.warning(
-                        "No updates from %s for %d seconds, reconnecting",
+                        "No updates from %s for %d seconds (watchdog interval %d seconds, "
+                        "%d push(es) in this observation session), reconnecting",
                         self.host,
                         int(elapsed),
+                        interval,
+                        self._session_pushes,
                     )
+                    # Give the reconnect a full interval before checking again.
+                    triggered_at = now
                     await self._async_reconnect()
 
     async def _async_reconnect(self) -> None:
@@ -440,7 +526,13 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _do_reconnect(self) -> None:
         """Perform the actual reconnect."""
+        loop = asyncio.get_event_loop()
+        self._reconnect_attempts += 1
+        stage = "shutdown"
         try:
+            # Retire the old observer first so its stream ending cannot raise
+            # into this reconnect and request another one.
+            await self._async_stop_observer()
             with contextlib.suppress(Exception):
                 await asyncio.wait_for(self.client.shutdown(), timeout=SHUTDOWN_TIMEOUT)
 
@@ -449,36 +541,94 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 # _async_refresh_via_nudge owns the coordinator client here: a
                 # client created now would be evicted by the nudge helper's
                 # temporary connection, so it (re)creates one after the nudge.
+                stage = "nudge"
+                outage_started = self._outage_started
                 await self._async_refresh_via_nudge()
             else:
+                stage = "create"
                 replacement = await async_create_client(self.host, create_client=CoAPClient.create)
                 if self._shutting_down:
                     await asyncio.wait_for(replacement.shutdown(), timeout=SHUTDOWN_TIMEOUT)
                     return
                 self.client = replacement
                 # One-shot read before re-establishing the observe stream.
+                stage = "status"
                 status, timeout = await asyncio.wait_for(
                     self.client.get_status(observe=False), timeout=COAP_CALL_TIMEOUT
                 )
                 self._timeout = timeout
-                self._last_update = asyncio.get_event_loop().time()
+                self._last_update = loop.time()
+                outage_started = self._outage_started
                 self._mark_available()
                 self.async_set_updated_data(status)
             self._reconnect_delay = RECONNECT_INITIAL_DELAY
-            _LOGGER.info("Reconnected to %s", self.host)
+            if outage_started is None:
+                _LOGGER.info("Reconnected to %s after %d attempt(s)", self.host, self._reconnect_attempts)
+            else:
+                _LOGGER.info(
+                    "Reconnected to %s after %d attempt(s), unavailable for %d seconds",
+                    self.host,
+                    self._reconnect_attempts,
+                    int(loop.time() - outage_started),
+                )
+            self._reconnect_attempts = 0
+            self._consecutive_reconnect_failures = 0
             self._start_observing()
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception as err:
+            if stage == "status":
+                # Release the client whose status read failed instead of
+                # keeping it open through the backoff delay.
+                with contextlib.suppress(Exception):
+                    await asyncio.wait_for(self.client.shutdown(), timeout=SHUTDOWN_TIMEOUT)
             retry_delay = self._reconnect_delay
             self._reconnect_delay = min(self._reconnect_delay * 2, RECONNECT_MAX_DELAY)
+            self._consecutive_reconnect_failures += 1
+            self._last_reconnect_error = {"stage": stage, "type": type(err).__name__}
             self._mark_unavailable("reconnect failed")
+            # A timeout has an empty message, so the type is what identifies it.
             _LOGGER.warning(
-                "Reconnect to %s failed, retrying in %s seconds",
+                "Reconnect to %s failed at the %s stage (%s: %s), retrying in %s seconds",
                 self.host,
+                stage,
+                type(err).__name__,
+                err,
                 retry_delay,
             )
+            _LOGGER.debug("Reconnect to %s failed", self.host, exc_info=True)
             self._schedule_reconnect_retry(retry_delay)
+
+    def connection_diagnostics(self) -> dict[str, Any]:
+        """Return a snapshot of the connection lifecycle for diagnostics."""
+        now = asyncio.get_event_loop().time()
+
+        def age(started: float | None) -> float | None:
+            return round(now - started, 1) if started else None
+
+        reconnecting = self._reconnect_task is not None and not self._reconnect_task.done()
+        return {
+            "available": self.last_update_success,
+            "seconds_since_last_update": age(self._last_update),
+            "watchdog_enabled": self._update_watchdog_enabled,
+            "watchdog_interval": self._watchdog_interval(),
+            "observer_running": self._observe_task is not None and not self._observe_task.done(),
+            "observation_generation": self._observe_generation,
+            "session_pushes": self._session_pushes,
+            "session_age": age(self._session_started),
+            "first_push_latency": (
+                round(self._session_first_push - self._session_started, 1)
+                if self._session_first_push is not None and self._session_started is not None
+                else None
+            ),
+            "reconnect_in_progress": reconnecting,
+            "reconnect_age": age(self._reconnect_started) if reconnecting else None,
+            "reconnect_delay": self._reconnect_delay,
+            "reconnect_attempts": self._reconnect_attempts,
+            "consecutive_reconnect_failures": self._consecutive_reconnect_failures,
+            "last_reconnect_error": self._last_reconnect_error,
+            "outage_seconds": age(self._outage_started),
+        }
 
     async def async_first_refresh_and_observe(self) -> None:
         """Perform first refresh and start observing."""
