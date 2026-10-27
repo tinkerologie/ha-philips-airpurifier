@@ -5,3 +5,4 @@ cd "$(dirname "$0")/../.."
 uv sync --all-extras
 npm ci --ignore-scripts
 npm ci --prefix frontend
+(cd frontend && npx playwright install chromium)
