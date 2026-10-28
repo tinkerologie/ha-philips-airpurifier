@@ -1,6 +1,12 @@
 version = 1
 revision = 5
 requires-python = ">=3.14.2"
+resolution-markers = [
+    "python_full_version < '3.15'",
+]
+supported-markers = [
+    "python_full_version < '3.15'",
+]
 
 [manifest]
 overrides = [
@@ -1066,7 +1072,7 @@ requires-dist = [
     { name = "codespell", marker = "extra == 'dev'" },
     { name = "homeassistant", marker = "extra == 'dev'", specifier = ">=2026.9.0" },
     { name = "infrared-protocols", marker = "extra == 'dev'" },
-    { name = "philips-airctrl", specifier = "==1.3.0" },
+    { name = "philips-airctrl", specifier = "==1.4.0" },
     { name = "pyright", marker = "extra == 'dev'" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pytest-asyncio", marker = "extra == 'dev'" },
@@ -1721,7 +1727,7 @@ wheels = [
 
 [[package]]
 name = "philips-airctrl"
-version = "1.3.0"
+version = "1.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiocoap" },
@@ -1732,9 +1738,9 @@ dependencies = [
     { name = "pyyaml" },
     { name = "tabulate" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6d/9b/82b989a86ce595d161b79db6bab11fd78bf8251646f41f6c470cf78c6723/philips_airctrl-1.3.0.tar.gz", hash = "sha256:7795224fb7bf7f11d3414e940221d8c1f57a6d8b69be0b6156dbd21df0afc0a3", size = 128085, upload-time = "2026-10-19T00:21:13.968Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ce/cf/1e563c61bca992087c64130ebc53412e63d5e4f5fe82e706f643154d5297/philips_airctrl-1.4.0.tar.gz", hash = "sha256:aafe065c2f16316a07e1f056740b32ea8fddfc8b8f1d971bc411d786c7be2f30", size = 132106, upload-time = "2026-10-28T00:02:09.322Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d1/35/532ef970cfbeb21e866c7106b8c6a4691d7dd3e82f49e289e7e9e8953587/philips_airctrl-1.3.0-py3-none-any.whl", hash = "sha256:6ba903fbca87950b6f7f3cf433c7d41cff02a04b23e8c32dff3a06caebdd08fe", size = 29773, upload-time = "2026-10-19T00:21:12.532Z" },
+    { url = "https://files.pythonhosted.org/packages/24/60/616c694e9aed5885a5444f449e5792656fcaf19922d0a8e9de4ed276eb3f/philips_airctrl-1.4.0-py3-none-any.whl", hash = "sha256:2d5cc47946f4a7b5957e6fd28c4e067a8977726ad7be8108ca3ad5e3294c70b3", size = 31257, upload-time = "2026-10-28T00:02:07.495Z" },
 ]
 
 [[package]]

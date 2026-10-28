@@ -17,7 +17,7 @@ Read `AGENTS.md` completely before starting any work. It contains:
 - **Title:** Philips Air Purifier Integration
 - **Class prefix:** `PhilipsAirPurifier`
 - **Main code:** `custom_components/philips_airpurifier/`
-- **Upstream library:** `philips-airctrl==1.1.0` — Never bypass it
+- **Upstream library:** `philips-airctrl==1.4.0` — Never bypass it
 - **Validate:** `script/check` (type-check + lint + spell)
 - **Test:** `script/test`
 - **Run HA:** `./script/develop`

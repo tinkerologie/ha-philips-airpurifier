@@ -28,12 +28,16 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 ### Changed
 
 - Require Home Assistant 2026.9.0 or later in HACS.
+- Update `philips-airctrl` to 1.4.0.
 - The watchdog now checks one interval after the last push instead of on a fixed tick,
   so an outage is detected about one interval after the device falls silent rather
   than up to two. This improves detection accuracy only; it does not prevent outages.
 
 ### Fixed
 
+- Devices no longer go unavailable every few minutes because the push subscription
+  lapses (#172): `philips-airctrl` 1.4.0 renews the CoAP Observe registration every
+  Max-Age seconds instead of registering it once. The watchdog stays as a safety net.
 - A replaced or cancelled observation stream can no longer request a reconnect, the old
   observer is stopped before a reconnect closes its client, and a client whose status
   read failed during reconnect is closed instead of staying open through the backoff.
