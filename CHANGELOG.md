@@ -29,6 +29,8 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 
 - Require Home Assistant 2026.9.0 or later in HACS.
 - Update `philips-airctrl` to 1.4.0.
+- The frontend dependency audit in CI fails on moderate or higher severity. It still covers
+  the whole dependency tree, including the dev toolchain.
 - The watchdog now checks one interval after the last push instead of on a fixed tick,
   so an outage is detected about one interval after the device falls silent rather
   than up to two. This improves detection accuracy only; it does not prevent outages.
