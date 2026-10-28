@@ -7,6 +7,8 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 
 ## [Unreleased]
 
+## [2026.10.3] - 2026-10-28
+
 ### Added
 
 - Three configurable, theme-aware Philips dashboard cards built with TypeScript 7 and Lit:
