@@ -5,7 +5,7 @@ description = "Home Assistant integration for Philips Air Purifiers via CoAP"
 requires-python = ">=3.14.2"
 license = {text = "Apache-2.0"}
 dependencies = [
-    "philips-airctrl==1.3.0",
+    "philips-airctrl==1.4.0",
 ]
 
 [project.optional-dependencies]
@@ -84,6 +84,10 @@ exclude_lines = [
 ]
 
 [tool.uv]
+# Lock only for the Python that Home Assistant runs on. philips-airctrl 1.4.0
+# adds a Python 3.15 marker, and without this uv also resolves an unused 3.15
+# fork, backtracking Home Assistant's pins to very old releases there.
+environments = ["python_full_version < '3.15'"]
 # Security overrides: force patched versions of vulnerable transitive dependencies
 # pinned by Home Assistant at vulnerable versions.
 override-dependencies = [

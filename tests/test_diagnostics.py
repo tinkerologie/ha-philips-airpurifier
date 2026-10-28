@@ -242,3 +242,21 @@ async def test_full_diagnostics_payload_removes_identifying_values(
     payload = json.dumps(result)
     for value in [TEST_HOST, TEST_DEVICE_ID, "ab:cd:ef:12:34:56", "Private room", "private-device-id"]:
         assert value not in payload
+
+
+async def test_diagnostics_connection_lifecycle(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+) -> None:
+    """Diagnostics export the connection lifecycle without the device host."""
+    coordinator = init_integration.runtime_data
+    coordinator._last_reconnect_error = {"stage": "create", "type": "TimeoutError"}
+
+    result = await async_get_config_entry_diagnostics(hass, init_integration)
+
+    connection = result["connection"]
+    assert connection["available"] is True
+    assert connection["watchdog_enabled"] is True
+    assert connection["last_reconnect_error"]["stage"] == "create"
+    assert TEST_HOST not in str(connection)
+    assert result["coordinator"]["client_available"] is connection["available"]

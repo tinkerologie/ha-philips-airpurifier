@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import suppress
+import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -1243,3 +1244,361 @@ async def test_replacement_client_closed_when_shutdown_wins(hass: HomeAssistant,
         await coordinator._do_reconnect()
     replacement.shutdown.assert_awaited_once()
     assert coordinator.client is not replacement
+
+
+# Issue #172: lifecycle logging, push accounting and lifecycle hygiene.
+
+
+def _discard_task(coro, *_args, **_kwargs):
+    coro.close()
+    return MagicMock()
+
+
+@pytest.mark.parametrize(
+    ("create", "status", "stage"),
+    [
+        (AsyncMock(side_effect=TimeoutError), None, "create"),
+        (None, RuntimeError(f"no answer from {TEST_HOST}"), "status"),
+    ],
+)
+async def test_reconnect_failure_reports_stage_and_type(
+    hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
+    create: AsyncMock | None,
+    status: Exception | None,
+    stage: str,
+) -> None:
+    """A failed reconnect logs which stage failed and the exception type."""
+    coordinator = _make_coordinator(hass, client=AsyncMock())
+    new_client = AsyncMock()
+    new_client.get_status.side_effect = status
+
+    with (
+        patch(
+            "custom_components.philips_airpurifier.coordinator.CoAPClient.create",
+            new=create or AsyncMock(return_value=new_client),
+        ),
+        patch.object(coordinator, "_schedule_reconnect_retry"),
+    ):
+        await coordinator._do_reconnect()
+
+    error_type = "TimeoutError" if stage == "create" else "RuntimeError"
+    assert f"failed at the {stage} stage ({error_type}" in caplog.text
+    error = coordinator.connection_diagnostics()["last_reconnect_error"]
+    assert error["stage"] == stage
+    assert error == {"stage": stage, "type": error_type}
+    assert coordinator._consecutive_reconnect_failures == 1
+    if stage == "status":
+        # The client whose status read failed is released before the backoff.
+        new_client.shutdown.assert_awaited_once()
+
+
+async def test_reconnect_success_logs_attempts_and_outage(
+    hass: HomeAssistant, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A successful reconnect reports the attempt count and outage duration."""
+    caplog.set_level(logging.INFO)
+    coordinator = _make_coordinator(hass, client=AsyncMock())
+    new_client = AsyncMock()
+    new_client.get_status.return_value = ({"pwr": "1"}, 30)
+    coordinator._mark_unavailable("watchdog timeout")
+    coordinator._outage_started -= 125
+    coordinator._reconnect_attempts = 2
+    coordinator._consecutive_reconnect_failures = 2
+
+    with (
+        patch(
+            "custom_components.philips_airpurifier.coordinator.CoAPClient.create",
+            new=AsyncMock(return_value=new_client),
+        ),
+        patch.object(coordinator, "_start_observing"),
+    ):
+        await coordinator._do_reconnect()
+
+    assert "after 3 attempt(s), unavailable for 125 seconds" in caplog.text
+    assert coordinator._reconnect_attempts == 0
+    assert coordinator._consecutive_reconnect_failures == 0
+    assert coordinator.connection_diagnostics()["outage_seconds"] is None
+
+
+async def test_reconnect_success_without_outage_logs_attempts(
+    hass: HomeAssistant, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A reconnect after a stream ending, with the device still available, logs no duration."""
+    caplog.set_level(logging.INFO)
+    coordinator = _make_coordinator(hass, model="CX7550", client=AsyncMock())
+
+    with (
+        patch.object(coordinator, "_async_refresh_via_nudge", new=AsyncMock()),
+        patch.object(coordinator, "_start_observing"),
+    ):
+        await coordinator._do_reconnect()
+
+    assert "Reconnected to" in caplog.text
+    assert "unavailable for" not in caplog.text
+
+
+async def test_reconnect_stops_old_observer_before_client_shutdown(hass: HomeAssistant) -> None:
+    """The reconnect entry retires the old observer before closing its client."""
+    order: list[str] = []
+    client = AsyncMock()
+    client.shutdown.side_effect = lambda: order.append("client_shutdown")
+    coordinator = _make_coordinator(hass, client=client)
+
+    async def stop_observer() -> None:
+        order.append("stop_observer")
+
+    with (
+        patch.object(coordinator, "_async_stop_observer", side_effect=stop_observer),
+        patch(
+            "custom_components.philips_airpurifier.coordinator.CoAPClient.create",
+            new=AsyncMock(side_effect=RuntimeError("connect failed")),
+        ),
+        patch.object(coordinator, "_schedule_reconnect_retry"),
+    ):
+        await coordinator._do_reconnect()
+
+    assert order == ["stop_observer", "client_shutdown"]
+
+
+async def test_stop_observer_cancels_and_awaits_running_task(hass: HomeAssistant) -> None:
+    """Stopping a running observer cancels it, waits for it and bumps the generation."""
+    coordinator = _make_coordinator(hass)
+    started = asyncio.Event()
+
+    async def run_forever() -> None:
+        started.set()
+        await asyncio.Event().wait()
+
+    task = asyncio.create_task(run_forever())
+    await started.wait()
+    coordinator._observe_task = task
+
+    await coordinator._async_stop_observer()
+
+    assert task.cancelled()
+    assert coordinator._observe_task is None
+    assert coordinator._observe_generation == 1
+
+
+async def test_stop_observer_handles_missing_and_finished_tasks(hass: HomeAssistant) -> None:
+    """Stopping is a no-op apart from the generation when no observer is running."""
+    coordinator = _make_coordinator(hass)
+    await coordinator._async_stop_observer()
+
+    async def fail() -> None:
+        raise RuntimeError("stream failed")
+
+    finished = asyncio.create_task(fail())
+    with suppress(RuntimeError):
+        await finished
+    coordinator._observe_task = finished
+    await coordinator._async_stop_observer()
+
+    assert coordinator._observe_generation == 2
+
+
+async def test_stop_observer_retrieves_error_of_task_that_finishes_while_waiting(hass: HomeAssistant) -> None:
+    """An observer that ends with an error during the wait has its error retrieved."""
+    coordinator = _make_coordinator(hass)
+
+    async def fail_on_cancel() -> None:
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            raise RuntimeError("closed") from None
+
+    task = asyncio.create_task(fail_on_cancel())
+    await asyncio.sleep(0)
+    coordinator._observe_task = task
+
+    await coordinator._async_stop_observer()
+
+    assert isinstance(task.exception(), RuntimeError)
+
+
+async def test_start_observing_starts_a_new_session(hass: HomeAssistant) -> None:
+    """Each observation session gets a new generation and fresh push counters."""
+    coordinator = _make_coordinator(hass)
+    coordinator._session_pushes = 4
+    coordinator._session_first_push = 1.0
+
+    with patch.object(hass, "async_create_background_task", side_effect=_discard_task):
+        coordinator._start_observing()
+
+    assert coordinator._observe_generation == 1
+    assert coordinator._session_pushes == 0
+    assert coordinator._session_first_push is None
+
+
+async def test_observe_counts_pushes_and_records_first_push(
+    hass: HomeAssistant, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Each pushed status is counted and the first push latency is logged."""
+    caplog.set_level(logging.DEBUG)
+    client = MagicMock()
+
+    async def stream():
+        yield {"pwr": "1"}
+        yield {"pwr": "0"}
+
+    client.observe_status = MagicMock(return_value=stream())
+    coordinator = _make_coordinator(hass, client=client)
+    coordinator._observe_generation = 3
+
+    with patch.object(hass, "async_create_background_task", side_effect=_discard_task) as create_task:
+        await coordinator._async_observe_status(3)
+
+    assert coordinator._session_pushes == 2
+    assert coordinator._session_first_push is not None
+    assert "First observation push" in caplog.text
+    assert "ended without an error" in caplog.text
+    # A normally ending stream of the current session still requests recovery.
+    create_task.assert_called_once()
+    snapshot = coordinator.connection_diagnostics()
+    assert snapshot["session_pushes"] == 2
+    assert snapshot["first_push_latency"] is not None
+
+
+async def test_stale_observer_does_not_reconnect_or_count(hass: HomeAssistant) -> None:
+    """An observer replaced by a newer session neither counts pushes nor reconnects."""
+    client = MagicMock()
+
+    async def stream():
+        yield {"pwr": "1"}
+        raise RuntimeError("old stream closed")
+
+    client.observe_status = MagicMock(return_value=stream())
+    coordinator = _make_coordinator(hass, client=client)
+    coordinator._observe_generation = 5
+
+    with patch.object(hass, "async_create_background_task", side_effect=_discard_task) as create_task:
+        await coordinator._async_observe_status(4)
+
+    create_task.assert_not_called()
+    assert coordinator._session_pushes == 0
+
+
+async def test_first_push_check_logs_only_for_a_silent_current_session(
+    hass: HomeAssistant, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The no-initial-response message fires only for the current, silent session."""
+    caplog.set_level(logging.INFO)
+    coordinator = _make_coordinator(hass)
+    coordinator._observe_generation = 2
+
+    coordinator._check_first_push(1)
+    assert "no initial response" not in caplog.text
+
+    coordinator._session_pushes = 1
+    coordinator._check_first_push(2)
+    assert "no initial response" not in caplog.text
+
+    coordinator._session_pushes = 0
+    coordinator._check_first_push(2)
+    assert caplog.text.count("no initial response") == 1
+
+
+async def test_first_push_check_is_cancelled_when_the_session_ends(hass: HomeAssistant) -> None:
+    """The first-push timer never outlives its observation session."""
+    client = MagicMock()
+    handles: list[asyncio.TimerHandle] = []
+    loop = asyncio.get_event_loop()
+    real_call_later = loop.call_later
+
+    def record_call_later(*args, **kwargs):
+        handle = real_call_later(*args, **kwargs)
+        handles.append(handle)
+        return handle
+
+    async def silent_stream():
+        raise RuntimeError("closed before any push")
+        yield {}
+
+    client.observe_status = MagicMock(return_value=silent_stream())
+    coordinator = _make_coordinator(hass, client=client)
+
+    with (
+        patch.object(loop, "call_later", side_effect=record_call_later),
+        patch.object(hass, "async_create_background_task", side_effect=_discard_task),
+    ):
+        await coordinator._async_observe_status()
+
+    assert len(handles) == 1
+    assert handles[0].cancelled()
+
+
+async def test_watchdog_sleeps_until_the_window_after_the_last_push(hass: HomeAssistant) -> None:
+    """The watchdog wakes about one interval after the last push, not on a fixed tick."""
+    coordinator = _make_coordinator(hass, missed_package_count=10)
+    coordinator._timeout = 60
+    coordinator._last_update = 1000
+
+    fake_loop = MagicMock()
+    # 200 s after the last push, 400 s of the 600 s window remain.
+    fake_loop.time.return_value = 1200
+
+    with (
+        patch(
+            "custom_components.philips_airpurifier.coordinator.asyncio.sleep",
+            side_effect=asyncio.CancelledError,
+        ) as sleep_mock,
+        patch("custom_components.philips_airpurifier.coordinator.asyncio.get_event_loop", return_value=fake_loop),
+        pytest.raises(asyncio.CancelledError),
+    ):
+        await coordinator._async_watchdog()
+
+    sleep_mock.assert_called_once_with(400)
+
+
+async def test_watchdog_expires_one_interval_after_the_last_push(
+    hass: HomeAssistant, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Expiry is detected at about I after the last push and reports the session pushes."""
+    coordinator = _make_coordinator(hass, missed_package_count=10)
+    coordinator._timeout = 60
+    coordinator._last_update = 1000
+    coordinator._session_pushes = 7
+
+    clock = {"now": 1200.0}
+    fake_loop = MagicMock()
+    fake_loop.time.side_effect = lambda: clock["now"]
+    sleeps: list[float] = []
+
+    async def fake_sleep(delay: float) -> None:
+        sleeps.append(delay)
+        if len(sleeps) == 3:
+            raise asyncio.CancelledError
+        clock["now"] += delay
+
+    with (
+        patch("custom_components.philips_airpurifier.coordinator.asyncio.sleep", side_effect=fake_sleep),
+        patch("custom_components.philips_airpurifier.coordinator.asyncio.get_event_loop", return_value=fake_loop),
+        patch.object(coordinator, "_async_reconnect", new=AsyncMock()) as reconnect_mock,
+        pytest.raises(asyncio.CancelledError),
+    ):
+        await coordinator._async_watchdog()
+
+    # 400 s to the deadline, then the minimum sleep past the strict ">" check,
+    # then a full interval before re-checking after the reconnect request.
+    assert sleeps == [400, 1, 600]
+    reconnect_mock.assert_awaited_once()
+    assert "No updates from" in caplog.text
+    assert "watchdog interval 600 seconds, 7 push(es)" in caplog.text
+
+
+async def test_connection_diagnostics_reports_reconnect_in_progress(hass: HomeAssistant) -> None:
+    """The lifecycle snapshot reports an active reconnect and its age."""
+    coordinator = _make_coordinator(hass)
+    reconnect = MagicMock()
+    reconnect.done.return_value = False
+    coordinator._reconnect_task = reconnect
+    coordinator._reconnect_started = asyncio.get_event_loop().time() - 12
+
+    snapshot = coordinator.connection_diagnostics()
+
+    assert snapshot["reconnect_in_progress"] is True
+    assert snapshot["reconnect_age"] >= 12
+    assert snapshot["observer_running"] is False
+    assert snapshot["seconds_since_last_update"] is None
+    assert snapshot["watchdog_interval"] == coordinator._timeout * coordinator.missed_package_count
