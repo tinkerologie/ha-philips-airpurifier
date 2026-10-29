@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/devcontainers/python:3.14
+FROM mcr.microsoft.com/devcontainers/python:3.15
 
 RUN set -eux; \
     rm -f /etc/apt/sources.list.d/yarn.list; \
