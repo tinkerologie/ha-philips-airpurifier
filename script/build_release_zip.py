@@ -20,17 +20,17 @@ Usage:
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterator, Sequence
 import hashlib
 import json
 import os
+from pathlib import Path, PurePosixPath
 import posixpath
 import re
 import subprocess
 import sys
 import time
 import zipfile
-from collections.abc import Iterator, Sequence
-from pathlib import Path, PurePosixPath
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_DIR = REPO_ROOT / "custom_components" / "philips_airpurifier"
@@ -51,9 +51,7 @@ REQUIRED_FILES = (
     "frontend/philips-airpurifier-cards.js",
 )
 # Relative specifiers in static imports, re-exports and dynamic imports.
-JS_RELATIVE_IMPORT = re.compile(
-    r"""(?:\bfrom|\bimport)\s*\(?\s*["'](\.{1,2}/[^"']+)["']"""
-)
+JS_RELATIVE_IMPORT = re.compile(r"""(?:\bfrom|\bimport)\s*\(?\s*["'](\.{1,2}/[^"']+)["']""")
 FILE_MODE = 0o100644  # regular file, rw-r--r--
 COMPRESS_LEVEL = 9
 
@@ -107,13 +105,9 @@ def check_members(package_dir: Path, names: Sequence[str]) -> None:
             continue
         source = (package_dir / name).read_text(encoding="utf-8")
         for specifier in JS_RELATIVE_IMPORT.findall(source):
-            target = posixpath.normpath(
-                (PurePosixPath(name).parent / specifier).as_posix()
-            )
+            target = posixpath.normpath((PurePosixPath(name).parent / specifier).as_posix())
             if target not in members:
-                raise ReleaseZipError(
-                    f"{name} imports {specifier}, which is not in the package"
-                )
+                raise ReleaseZipError(f"{name} imports {specifier}, which is not in the package")
 
 
 def source_date_epoch(environ: dict[str, str] | None = None) -> int:
@@ -144,9 +138,7 @@ def check_version(package_dir: Path, expected: str) -> None:
     expected = expected.removeprefix("v")
     actual = manifest_version(package_dir)
     if actual != expected:
-        raise ReleaseZipError(
-            f"manifest.json version {actual} does not match release {expected}"
-        )
+        raise ReleaseZipError(f"manifest.json version {actual} does not match release {expected}")
 
 
 def build_zip(package_dir: Path, zip_path: Path, epoch: int) -> list[str]:

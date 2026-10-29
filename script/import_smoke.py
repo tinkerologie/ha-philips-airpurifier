@@ -14,11 +14,11 @@ from __future__ import annotations
 
 import importlib
 import logging
+from pathlib import Path
 import re
 import sys
 import traceback
 import warnings
-from pathlib import Path
 
 DOMAIN = "philips_airpurifier"
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -88,10 +88,7 @@ def run(package_dir: Path = PACKAGE_DIR) -> int:
         logging.getLogger().removeHandler(handler)
 
     for message in caught:
-        text = (
-            f"{message.category.__name__}: {message.message} "
-            f"({message.filename}:{message.lineno})"
-        )
+        text = f"{message.category.__name__}: {message.message} ({message.filename}:{message.lineno})"
         if is_own_warning(message, package_dir):
             failures.append(text)
         elif issubclass(message.category, DEPRECATIONS):

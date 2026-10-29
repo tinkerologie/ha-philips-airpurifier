@@ -20,17 +20,17 @@ Usage:
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable, Iterable, Sequence
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime, timedelta
 import email.utils
 import html
 import json
+from pathlib import Path
 import re
 import sys
 import urllib.request
 import xml.etree.ElementTree as ET
-from collections.abc import Callable, Iterable, Sequence
-from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_DIR = REPO_ROOT / "custom_components" / "philips_airpurifier"
@@ -92,11 +92,7 @@ def parse_feed(xml_text: str) -> list[Post]:
                 title=(item.findtext("title") or "").strip(),
                 link=(item.findtext("link") or "").strip(),
                 published=published.astimezone(UTC).isoformat(),
-                summary=" ".join(
-                    html.unescape(
-                        TAG.sub("", item.findtext("description") or "")
-                    ).split()
-                ),
+                summary=" ".join(html.unescape(TAG.sub("", item.findtext("description") or "")).split()),
             )
         )
     return posts
@@ -138,9 +134,7 @@ def source_files(package_dir: Path) -> list[Path]:
     return sorted(
         path
         for path in package_dir.rglob("*")
-        if path.is_file()
-        and path.suffix in SEARCHED_SUFFIXES
-        and "__pycache__" not in path.parts
+        if path.is_file() and path.suffix in SEARCHED_SUFFIXES and "__pycache__" not in path.parts
     )
 
 
@@ -172,11 +166,7 @@ def recent_posts(
 ) -> list[Post]:
     """Return the posts of the last ``days`` days, matched to the integration."""
     cutoff = now - timedelta(days=days)
-    posts = [
-        post
-        for post in parse_feed(fetch(FEED_URL))
-        if datetime.fromisoformat(post.published) >= cutoff
-    ]
+    posts = [post for post in parse_feed(fetch(FEED_URL)) if datetime.fromisoformat(post.published) >= cutoff]
     for post in posts:
         # One unreachable post must not hide the others; main reports it.
         try:
@@ -200,9 +190,7 @@ def render_summary(posts: Sequence[Post], days: int) -> str:
     ]
     for post in posts:
         if post.error:
-            lines.append(
-                f"| [{post.title}]({post.link}) | fetch failed: {post.error} | |"
-            )
+            lines.append(f"| [{post.title}]({post.link}) | fetch failed: {post.error} | |")
             continue
         flag = "yes" if post.announces_change else "no"
         used = ", ".join(f"`{name}`" for name in post.matches) or "none"
@@ -232,8 +220,7 @@ def render_issue(post: Post) -> str:
         "Home Assistant release, then fix it or close this issue with the reason.",
         "",
         "--------",
-        "Opened automatically by the weekly Home Assistant developer blog check "
-        "(`.github/workflows/ha-dev-blog.yml`).",
+        "Opened automatically by the weekly Home Assistant developer blog check (`.github/workflows/ha-dev-blog.yml`).",
     ]
     return "\n".join(line for line in lines if line is not None)
 
@@ -250,10 +237,7 @@ def main(argv: Sequence[str] | None = None, *, fetch: Fetch = fetch_url) -> int:
 
     posts = recent_posts(days=args.days, now=datetime.now(UTC), fetch=fetch)
     if args.json:
-        report = [
-            {**asdict(post), "actionable": post.actionable, "issue": render_issue(post)}
-            for post in posts
-        ]
+        report = [{**asdict(post), "actionable": post.actionable, "issue": render_issue(post)} for post in posts]
         args.json.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     summary = render_summary(posts, args.days)
     if args.summary:
