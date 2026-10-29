@@ -113,6 +113,10 @@ def test_changed_identifiers_from_lists_and_tables_next_to_an_announcement(blog:
 <ul><li><code>shiny_new_api</code></li></ul>
 <p>Nothing else changes.</p>
 <ul><li><code>other_new_api</code> no longer needs a config entry.</li><li><code>quiet_api</code></li></ul>
+<h3>Old helpers</h3>
+<p>Old helpers are deprecated.</p>
+<h3>New helpers</h3>
+<ul><li><code>fresh_helper</code></li></ul>
 </article>"""
     assert blog.changed_identifiers(page) == {
         "async_get_device",

@@ -41,9 +41,11 @@ MAX_LOCATIONS = 3
 
 ARTICLE = re.compile(r"<article\b.*?</article>", re.DOTALL | re.IGNORECASE)
 BLOCK = re.compile(r"<(p|li|td)\b[^>]*>(.*?)</\1>", re.DOTALL | re.IGNORECASE)
-# Paragraphs, lists and tables in document order. A list or table next to a
-# paragraph that announces a change names what that paragraph announces.
-UNIT = re.compile(r"<(p|ul|ol|table)\b[^>]*>(.*?)</\1>", re.DOTALL | re.IGNORECASE)
+# Headings, paragraphs, lists and tables in document order. A list or table next
+# to a paragraph that announces a change names what that paragraph announces; a
+# heading in between ends the association.
+UNIT = re.compile(r"<(h[1-6]|p|ul|ol|table)\b[^>]*>(.*?)</\1>", re.DOTALL | re.IGNORECASE)
+HEADING = re.compile(r"h[1-6]", re.IGNORECASE)
 INLINE_CODE = re.compile(r"<code\b[^>]*>(.*?)</code>", re.DOTALL | re.IGNORECASE)
 TAG = re.compile(r"<[^>]+>")
 TOKEN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
@@ -108,7 +110,7 @@ def changed_identifiers(page_html: str) -> set[str]:
     removal or breaking change are read, and only their inline code:
     highlighted ``<pre>`` examples are full of boilerplate every integration
     shares. A whole list or table also counts when the paragraph right before
-    or after it announces the change, as in "These are deprecated:" followed by
+    or after it, under the same heading, announces the change, as in "These are deprecated:" followed by
     a list, or a table of renamed names with the removal announced below it.
     An identifier counts when it has an underscore or is CamelCase, which
     leaves out ``None``, ``True`` and prose.
@@ -119,6 +121,8 @@ def changed_identifiers(page_html: str) -> set[str]:
     announcing = [tag.lower() == "p" and _announces(content) for tag, content in units]
     found: set[str] = set()
     for index, (tag, content) in enumerate(units):
+        if HEADING.fullmatch(tag):
+            continue
         if tag.lower() == "p":
             if announcing[index]:
                 found |= _code_identifiers(content)
