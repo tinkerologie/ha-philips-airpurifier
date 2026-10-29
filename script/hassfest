@@ -105,8 +105,9 @@ if [[ -f "$HA_CORE_ABS/packages/hassfest/pyproject.toml" ]]; then
 fi
 echo "Validating with Home Assistant Core $(git -C "$HA_CORE_DIR" rev-parse HEAD) ($HA_VERSION_TAG)"
 
-python3 -m script.hassfest \
-    --action validate \
-    --integration-path "$REPO_ROOT/$INTEGRATION_PATH" \
-    --skip-plugins "$SKIP_PLUGINS" \
-    "$@"
+HASSFEST_CMD=(python3 -m script.hassfest --action validate --integration-path "$REPO_ROOT/$INTEGRATION_PATH")
+# An empty list means every plugin; Hassfest rejects an empty --skip-plugins value.
+if [[ -n "$SKIP_PLUGINS" ]]; then
+    HASSFEST_CMD+=(--skip-plugins "$SKIP_PLUGINS")
+fi
+"${HASSFEST_CMD[@]}" "$@"

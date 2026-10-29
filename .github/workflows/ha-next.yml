@@ -77,6 +77,7 @@ jobs:
             {
               echo "ha_version=dev@${revision:0:12}"
               echo "requirement=homeassistant @ https://github.com/home-assistant/core/archive/$revision.tar.gz"
+              echo "hassfest_version=dev"
               echo "hassfest_ref=$revision"
             } >> "$GITHUB_OUTPUT"
             exit 0
@@ -106,7 +107,8 @@ jobs:
           {
             echo "ha_version=$ha_version"
             echo "requirement=homeassistant==$ha_version"
-            echo "hassfest_ref=$ha_version"
+            echo "hassfest_version=$ha_version"
+            echo "hassfest_ref="
           } >> "$GITHUB_OUTPUT"
 
       - name: Install Home Assistant and the test harness
@@ -122,14 +124,15 @@ jobs:
           # stop the resolver from falling back to an ancient harness release
           # that pins whatever Home Assistant is requested.
           mapfile -t integration_requirements < <(jq -r '.requirements[]' custom_components/philips_airpurifier/manifest.json)
-          # infrared-protocols is imported by Hassfest's device-class validator.
-          if [[ "$CHANNEL" == release ]] && uv pip install "$REQUIREMENT" "${integration_requirements[@]}" infrared-protocols \
+          # Hassfest imports tqdm and ruff (packages/hassfest) and, for its device-class validator,
+          # infrared-protocols; without the harness nothing else installs them.
+          if [[ "$CHANNEL" == release ]] && uv pip install "$REQUIREMENT" "${integration_requirements[@]}" infrared-protocols tqdm ruff \
             "pytest-homeassistant-custom-component>=0.13" "pytest>=8.0.0" "pytest-asyncio>=0.23.0" "pytest-cov>=4.0.0"; then
             echo "harness=true" >> "$GITHUB_OUTPUT"
           else
             echo "::notice::No pytest-homeassistant-custom-component release installs with Home Assistant $HA_VERSION; running the import smoke test only"
             echo "harness=false" >> "$GITHUB_OUTPUT"
-            uv pip install "$REQUIREMENT" "${integration_requirements[@]}" infrared-protocols
+            uv pip install "$REQUIREMENT" "${integration_requirements[@]}" infrared-protocols tqdm ruff
           fi
           python -c "from homeassistant.const import __version__; print('Installed Home Assistant', __version__)"
 
@@ -148,7 +151,8 @@ jobs:
         id: hassfest
         continue-on-error: true
         env:
-          HA_VERSION: ${{ steps.resolve.outputs.hassfest_ref }}
+          HA_VERSION: ${{ steps.resolve.outputs.hassfest_version }}
+          HA_CORE_REF: ${{ steps.resolve.outputs.hassfest_ref }}
         run: ./script/hassfest --skip-plugins ""
 
       - name: Summarize
