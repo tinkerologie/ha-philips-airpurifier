@@ -103,7 +103,8 @@ jobs:
   publish:
     name: Publish
     needs: build
-    if: needs.build.outputs.tag_exists == 'false'
+    # A manual run from another branch builds and attests, but never publishes.
+    if: needs.build.outputs.tag_exists == 'false' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write # create the draft, upload assets, publish the release and tag

@@ -97,6 +97,31 @@ def test_changed_identifiers_only_from_change_paragraphs(blog: Any) -> None:
     assert blog.changed_identifiers(FEATURE_POST) == set()
 
 
+def test_changed_identifiers_from_lists_and_tables_next_to_an_announcement(blog: Any) -> None:
+    """A list or table names what the paragraph right before or after it announces."""
+    page = """<article>
+<h3>Deprecated helpers</h3>
+<p>These helpers are deprecated:</p>
+<ul><li><code>async_get_device</code></li></ul>
+<h3>Renamed properties</h3>
+<p>The properties are renamed to match the other entities.</p>
+<table><tr><td><code>target_temperature</code></td><td><code>native_target_temperature</code></td></tr></table>
+<p>The old names will be removed in 2027.11.</p>
+<p>See <code>some_helper</code> for details.</p>
+<h3>New features</h3>
+<p>You can also use these:</p>
+<ul><li><code>shiny_new_api</code></li></ul>
+<p>Nothing else changes.</p>
+<ul><li><code>other_new_api</code> no longer needs a config entry.</li><li><code>quiet_api</code></li></ul>
+</article>"""
+    assert blog.changed_identifiers(page) == {
+        "async_get_device",
+        "target_temperature",
+        "native_target_temperature",
+        "other_new_api",
+    }
+
+
 def test_changed_identifiers_without_article(blog: Any) -> None:
     """A page without an <article> is read whole."""
     page = "<p>The <code>gone_api</code> was removed.</p>"

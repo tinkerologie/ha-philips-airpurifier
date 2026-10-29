@@ -57,7 +57,7 @@ MOCK_STATUS_HEATER: dict = {
     "D03102": 1,  # NEW2_POWER (on)
     "D0310A": 3,  # NEW2_MODE_A
     "D0310C": 0,  # NEW2_MODE_B (auto_plus)
-    "D03224": 22,  # NEW2_TEMPERATURE (current temp)
+    "D03224": 223,  # NEW2_TEMPERATURE (current temp, tenths of a degree)
     "D0310E": 25,  # NEW2_TARGET_TEMP (target temp)
     "D0320F": 0,  # NEW2_OSCILLATION (off)
     "D03103": 0,  # NEW2_CHILD_LOCK (off)
@@ -66,7 +66,6 @@ MOCK_STATUS_HEATER: dict = {
     "modelid": HEATER_MODEL,
     # Sensors
     "D03125": 50,  # humidity
-    "temp": 22,
 }
 
 
@@ -583,21 +582,31 @@ async def test_climate_temperatures_follow_device_updates(
     hass: HomeAssistant,
     init_heater_integration: MockConfigEntry,
 ) -> None:
-    """Test the current and target temperatures follow device updates, in Celsius."""
+    """Test the current and target temperatures follow device updates, in Celsius.
+
+    Real CX3120 status reports carry the room temperature only in D03224, in tenths.
+    """
     entity_id = _get_climate_entity_id(hass, init_heater_integration)
     state = hass.states.get(entity_id)
     assert state is not None
-    assert state.attributes[ATTR_CURRENT_TEMPERATURE] == 22
+    assert state.attributes[ATTR_CURRENT_TEMPERATURE] == 22.3
     assert state.attributes[ATTR_TEMPERATURE] == 25
 
     coordinator = init_heater_integration.runtime_data
-    coordinator.async_set_updated_data({**coordinator.data, "temp": 19, "D0310E": 27})
+    coordinator.async_set_updated_data({**coordinator.data, "D03224": 194, "D0310E": 27})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
     assert state is not None
-    assert state.attributes[ATTR_CURRENT_TEMPERATURE] == 19
+    assert state.attributes[ATTR_CURRENT_TEMPERATURE] == 19.4
     assert state.attributes[ATTR_TEMPERATURE] == 27
+
+    coordinator.async_set_updated_data({k: v for k, v in coordinator.data.items() if k != "D03224"})
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.attributes[ATTR_CURRENT_TEMPERATURE] is None
     assert hass.config.units.temperature_unit == UnitOfTemperature.CELSIUS
 
 
@@ -682,7 +691,7 @@ async def test_climate_no_oscillation_model_swing_paths(hass: HomeAssistant) -> 
     coordinator.data = {
         "D03102": 1,
         "D0310E": 22,
-        "temp": 21,
+        "D03224": 210,
         "D0310A": 3,
         "D0310C": 0,
     }

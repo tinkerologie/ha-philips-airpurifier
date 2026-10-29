@@ -104,8 +104,11 @@ class PhilipsHeater(PhilipsAirPurifierEntity, ClimateEntity):  # pyright: ignore
 
     @property
     def native_current_temperature(self) -> float | None:
-        """Return the current temperature."""
-        return self._device_status.get(self._current_temperature_key)
+        """Return the current temperature, reported in tenths of a degree."""
+        value = self._device_status.get(self._current_temperature_key)
+        if isinstance(value, int | float):
+            return value / 10
+        return None
 
     # Delete this block once the minimum Home Assistant version is 2026.11.
     if not _HAS_NATIVE_TEMPERATURE_API:  # pragma: no cover

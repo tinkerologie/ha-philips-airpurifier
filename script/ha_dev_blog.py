@@ -41,6 +41,9 @@ MAX_LOCATIONS = 3
 
 ARTICLE = re.compile(r"<article\b.*?</article>", re.DOTALL | re.IGNORECASE)
 BLOCK = re.compile(r"<(p|li|td)\b[^>]*>(.*?)</\1>", re.DOTALL | re.IGNORECASE)
+# Paragraphs, lists and tables in document order. A list or table next to a
+# paragraph that announces a change names what that paragraph announces.
+UNIT = re.compile(r"<(p|ul|ol|table)\b[^>]*>(.*?)</\1>", re.DOTALL | re.IGNORECASE)
 INLINE_CODE = re.compile(r"<code\b[^>]*>(.*?)</code>", re.DOTALL | re.IGNORECASE)
 TAG = re.compile(r"<[^>]+>")
 TOKEN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
@@ -101,24 +104,49 @@ def parse_feed(xml_text: str) -> list[Post]:
 def changed_identifiers(page_html: str) -> set[str]:
     """Return the API-like identifiers named next to an announced change.
 
-    Only paragraphs, list items and table cells whose text announces a
-    deprecation, removal or breaking change are read, and only their inline
-    code: highlighted ``<pre>`` examples are full of boilerplate every
-    integration shares. An identifier counts when it has an underscore or is
-    CamelCase, which leaves out ``None``, ``True`` and prose.
+    Only paragraphs, list items and table cells that announce a deprecation,
+    removal or breaking change are read, and only their inline code:
+    highlighted ``<pre>`` examples are full of boilerplate every integration
+    shares. A whole list or table also counts when the paragraph right before
+    or after it announces the change, as in "These are deprecated:" followed by
+    a list, or a table of renamed names with the removal announced below it.
+    An identifier counts when it has an underscore or is CamelCase, which
+    leaves out ``None``, ``True`` and prose.
     """
     article = ARTICLE.search(page_html)
     body = article.group(0) if article else page_html
+    units = UNIT.findall(body)
+    announcing = [tag.lower() == "p" and _announces(content) for tag, content in units]
     found: set[str] = set()
-    for _tag, block in BLOCK.findall(body):
-        if not ANNOUNCES_CHANGE.search(html.unescape(TAG.sub(" ", block))):
+    for index, (tag, content) in enumerate(units):
+        if tag.lower() == "p":
+            if announcing[index]:
+                found |= _code_identifiers(content)
             continue
-        for code in INLINE_CODE.findall(block):
-            for token in TOKEN.findall(html.unescape(TAG.sub("", code))):
-                if token.startswith("__") or token in GENERIC or len(token) < 4:
-                    continue
-                if "_" in token or sum(char.isupper() for char in token) >= 2:
-                    found.add(token)
+        neighbours = announcing[max(index - 1, 0) : index + 2]
+        if any(neighbours):
+            found |= _code_identifiers(content)
+            continue
+        for _tag, block in BLOCK.findall(content):
+            if _announces(block):
+                found |= _code_identifiers(block)
+    return found
+
+
+def _announces(fragment: str) -> bool:
+    """Return True when an HTML fragment's text announces a change."""
+    return ANNOUNCES_CHANGE.search(html.unescape(TAG.sub(" ", fragment))) is not None
+
+
+def _code_identifiers(block: str) -> set[str]:
+    """Return the API-like identifiers in a block's inline code."""
+    found: set[str] = set()
+    for code in INLINE_CODE.findall(block):
+        for token in TOKEN.findall(html.unescape(TAG.sub("", code))):
+            if token.startswith("__") or token in GENERIC or len(token) < 4:
+                continue
+            if "_" in token or sum(char.isupper() for char in token) >= 2:
+                found.add(token)
     return found
 
 

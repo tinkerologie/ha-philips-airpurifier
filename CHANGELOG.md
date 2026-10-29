@@ -44,8 +44,9 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
   later, so Home Assistant no longer logs that `PhilipsHeater` provides the deprecated
   `_attr_temperature_unit` and `target_temperature` (#179, #181). Earlier releases keep the
   old members.
-- The heater's current temperature follows device updates; it previously kept the value
-  read at startup.
+- The heater reports its current temperature: it now reads the Gen3 `D03224` field (tenths
+  of a degree) that CX3120 and CX5120 heaters send, instead of a `temp` field they never
+  report, and follows device updates instead of keeping the value read at startup.
 - The Home Assistant 2026.9 minimum CI job runs again: Dependabot had raised the pinned
   floor in `requirements_test_min.txt` to 2026.10.4, and no longer edits that file.
 
