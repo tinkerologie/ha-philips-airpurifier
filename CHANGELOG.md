@@ -7,6 +7,14 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 
 ## [Unreleased]
 
+### Security
+
+- Development dependencies only; the integration itself ships no Pillow or npm code. The
+  development lock overrides Home Assistant 2026.10's Pillow 12.3.0 pin with 13.0.0, which
+  fixes 32 advisories (including GHSA-5x8w-8jj5-q52h). Remove the override once the minimum
+  Home Assistant pins Pillow 13. markdownlint's `re2js` is overridden to 2.9.1
+  (GHSA-gg6h-894w-4m9c).
+
 ## [2026.10.4] - 2026-10-29
 
 ### Added
