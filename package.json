@@ -12,6 +12,7 @@
   "overrides": {
     "katex": "^0.18.2",
     "smol-toml": "^1.9.1",
-    "markdown-it": "^15.0.3"
+    "markdown-it": "^15.0.3",
+    "re2js": "^2.8.7"
   }
 }

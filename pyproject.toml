@@ -100,4 +100,5 @@ environments = ["python_full_version < '3.15'"]
 override-dependencies = [
     "pyjwt>=2.12.0",   # CVE-2026-32597
     "uv>=0.11.6",      # GHSA-pjjw-68hj-v9mw
+    "pillow>=13.0.0",  # GHSA-5x8w-8jj5-q52h and 31 more; HA 2026.10 pins 12.3.0
 ]
