@@ -1,90 +1,114 @@
 import { css } from "lit";
+// Built on the Home Assistant design tokens (--ha-space-*, --ha-font-*,
+// --ha-border-radius-*, semantic --ha-color-* and the --state-* colours). Each
+// token keeps a fallback equal to its core value, so the cards also follow user
+// themes and render the same on frontends that predate a token.
 export const styles = css`
   :host {
     display: block;
     container-type: inline-size;
     height: 100%;
-    --pap-accent: var(--state-fan-active-color, var(--primary-color));
+    font-family: var(--ha-font-family-body, Roboto, Noto, sans-serif);
+    /* Tile-card language: the active state colour while on, neutral while off. */
+    --pap-active-color: var(--state-fan-active-color, var(--state-active-color, var(--primary-color)));
+    --pap-accent: var(--pap-active-color);
+  }
+  * {
+    box-sizing: border-box;
   }
   ha-card {
     height: 100%;
-    box-sizing: border-box;
     overflow: hidden;
     background: var(--ha-card-background, var(--card-background-color));
     color: var(--primary-text-color);
-    border-radius: var(--ha-card-border-radius, 16px);
+    border-radius: var(--ha-card-border-radius, var(--ha-border-radius-lg, 12px));
+  }
+  ha-card.is-off {
+    --pap-accent: var(--state-inactive-color, var(--secondary-text-color));
+  }
+  ha-card.is-unavailable {
+    --pap-accent: var(--state-unavailable-color, var(--disabled-text-color, var(--secondary-text-color)));
   }
   .body {
-    padding: 20px;
+    padding: var(--ha-space-5, 20px);
   }
   header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 20px;
+    gap: var(--ha-space-3, 12px);
+    margin-block-end: var(--ha-space-4, 16px);
+  }
+  .heading {
+    min-width: 0;
+  }
+  .header-actions {
+    display: flex;
+    gap: var(--ha-space-1, 4px);
   }
   h2 {
-    font-size: 1.2rem;
-    font-weight: 600;
-    line-height: 1.35;
     margin: 0;
+    font-size: var(--ha-font-size-l, 16px);
+    font-weight: var(--ha-font-weight-medium, 500);
+    line-height: var(--ha-line-height-condensed, 1.2);
     overflow-wrap: anywhere;
   }
   .eyebrow,
   .secondary {
     color: var(--secondary-text-color);
-    font-size: 0.8rem;
-    line-height: 1.5;
+    font-size: var(--ha-font-size-s, 12px);
+    line-height: var(--ha-line-height-normal, 1.6);
   }
   .eyebrow {
-    margin-bottom: 4px;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
+    margin-block-start: var(--ha-space-1, 4px);
+    line-height: var(--ha-line-height-condensed, 1.2);
   }
   button,
-  select,
   input {
     font: inherit;
     color: inherit;
   }
   button {
     min-height: 48px;
-    border: 1px solid var(--ha-color-border-neutral-quiet, var(--divider-color));
-    border-radius: 12px;
+    padding: var(--ha-space-2, 8px) var(--ha-space-3, 12px);
+    border: var(--ha-border-width-sm, 1px) solid var(--ha-color-border-neutral-quiet, var(--divider-color));
+    border-radius: var(--ha-border-radius-lg, 12px);
     background: transparent;
-    padding: 10px 14px;
     cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color var(--ha-animation-duration-fast, 150ms) ease-in-out;
   }
   button:hover:not(:disabled) {
     background: color-mix(in srgb, var(--pap-accent) 12%, transparent);
   }
   button:focus-visible,
-  input:focus-visible,
-  select:focus-visible {
-    outline: 3px solid var(--ha-color-focus, var(--primary-color));
-    outline-offset: 3px;
+  .segment:has(input:focus-visible) {
+    outline: 2px solid var(--ha-color-focus, var(--primary-color));
+    outline-offset: 2px;
   }
-  button:disabled,
-  input:disabled {
+  button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
-  button[aria-pressed="true"],
-  .primary {
+  button.active,
+  button[aria-pressed="true"] {
     color: var(--pap-accent);
-    background: color-mix(in srgb, var(--pap-accent) 14%, transparent);
+    background: color-mix(in srgb, var(--pap-accent) 20%, transparent);
     border-color: transparent;
   }
   .icon-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
     width: 48px;
     height: 48px;
-    padding: 12px;
-    border-radius: 50%;
-    flex-shrink: 0;
+    padding: var(--ha-space-3, 12px);
+    border-radius: var(--ha-border-radius-circle, 50%);
+  }
+  .icon-button.plain {
+    border: 0;
+    color: var(--secondary-text-color);
   }
   svg {
     width: 24px;
@@ -98,134 +122,71 @@ export const styles = css`
   .hero {
     display: flex;
     align-items: center;
-    gap: 22px;
-    padding: 20px;
-    margin: 0 -20px 20px;
-    background: linear-gradient(120deg, color-mix(in srgb, var(--pap-accent) 14%, transparent), transparent);
+    gap: var(--ha-space-5, 20px);
+    margin: 0 calc(-1 * var(--ha-space-5, 20px)) var(--ha-space-5, 20px);
+    padding: var(--ha-space-4, 16px) var(--ha-space-5, 20px);
+    background: linear-gradient(
+      to var(--pap-inline-end, right),
+      color-mix(in srgb, var(--pap-accent) 14%, transparent),
+      transparent
+    );
+  }
+  :host(:dir(rtl)) {
+    --pap-inline-end: left;
   }
   .hero svg {
-    width: 74px;
-    height: 108px;
     flex-shrink: 0;
+    width: 64px;
+    height: 94px;
     color: var(--pap-accent);
   }
   .value {
-    font-size: clamp(2rem, 8cqi, 3rem);
-    font-weight: 600;
-    line-height: 1.2;
-    letter-spacing: -0.03em;
+    font-size: clamp(var(--ha-font-size-2xl, 24px), 8cqi, var(--ha-font-size-4xl, 32px));
+    font-weight: var(--ha-font-weight-medium, 500);
+    line-height: var(--ha-line-height-condensed, 1.2);
     font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
   }
   .unit {
     color: var(--secondary-text-color);
-    font-size: 0.85rem;
-    font-weight: 400;
-    letter-spacing: normal;
+    font-size: var(--ha-font-size-m, 14px);
+    font-weight: var(--ha-font-weight-normal, 400);
+    white-space: nowrap;
   }
   .state {
-    display: inline-block;
-    margin-top: 8px;
-    font-size: 0.8rem;
+    margin-block-start: var(--ha-space-2, 8px);
     color: var(--pap-accent);
-  }
-  .chips,
-  .actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-  .chips button {
-    flex: 1 0 auto;
+    font-size: var(--ha-font-size-m, 14px);
+    font-weight: var(--ha-font-weight-medium, 500);
   }
   .section {
-    border-top: 1px solid var(--ha-color-border-neutral-quiet, var(--divider-color));
-    margin-top: 18px;
-    padding-top: 18px;
+    margin-block-start: var(--ha-space-4, 16px);
+    padding-block-start: var(--ha-space-4, 16px);
+    border-block-start: var(--ha-border-width-sm, 1px) solid var(--ha-color-border-neutral-quiet, var(--divider-color));
   }
   .section-title {
-    font-size: 0.85rem;
-    font-weight: 600;
-    margin-bottom: 10px;
+    margin-block-end: var(--ha-space-2, 8px);
+    padding: 0;
+    font-size: var(--ha-font-size-m, 14px);
+    font-weight: var(--ha-font-weight-medium, 500);
   }
-  label {
-    display: block;
-    font-size: 0.85rem;
-    margin-bottom: 6px;
-  }
-  input[type="range"] {
-    width: 100%;
-    min-height: 44px;
-    margin: 0;
-    accent-color: var(--pap-accent);
-    cursor: pointer;
-    appearance: none;
-    background: transparent;
-  }
-  input[type="range"]::-webkit-slider-runnable-track {
-    height: 8px;
-    border-radius: var(--ha-border-radius-pill, 999px);
-    background: color-mix(in srgb, var(--pap-accent) 20%, transparent);
-  }
-  input[type="range"]::-moz-range-track {
-    height: 8px;
-    border-radius: var(--ha-border-radius-pill, 999px);
-    background: color-mix(in srgb, var(--pap-accent) 20%, transparent);
-  }
-  input[type="range"]::-moz-range-progress {
-    height: 8px;
-    border-radius: var(--ha-border-radius-pill, 999px);
-    background: var(--pap-accent);
-  }
-  input[type="range"]::-webkit-slider-thumb {
-    appearance: none;
-    width: 20px;
-    height: 20px;
-    margin-top: -6px;
-    border-radius: 50%;
-    border: 0;
-    background: var(--pap-accent);
-  }
-  input[type="range"]::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    border: 0;
-    background: var(--pap-accent);
-  }
-  .tiles {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(135px, 100%), 1fr));
-    gap: 12px;
-  }
-  .tile {
-    text-align: start;
-    padding: 16px;
-    min-width: 0;
-    border-radius: 14px;
-    background: color-mix(in srgb, var(--primary-text-color) 4%, transparent);
-    border: 0;
-  }
-  .tile .value {
-    font-size: 1.9rem;
-    margin: 8px 0;
-    overflow-wrap: anywhere;
-  }
-  .tile .secondary {
-    display: block;
-  }
-  .filter {
+  .filter,
+  .row {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: var(--ha-space-3, 12px);
     width: 100%;
-    text-align: start;
+    padding: var(--ha-space-2, 8px);
     border: 0;
-    padding: 8px 0;
+    text-align: start;
+  }
+  .row {
+    justify-content: space-between;
   }
   .filter-ring {
-    width: 54px;
-    height: 54px;
     flex-shrink: 0;
+    width: 48px;
+    height: 48px;
     transform: rotate(-90deg);
     stroke-width: 4;
     color: var(--pap-accent);
@@ -234,40 +195,109 @@ export const styles = css`
     stroke: var(--ha-color-border-neutral-quiet, var(--divider-color));
   }
   .filter-text {
+    display: flex;
+    flex-direction: column;
     flex: 1;
     min-width: 0;
   }
   .filter-name {
-    display: block;
-    font-size: 0.85rem;
+    font-size: var(--ha-font-size-m, 14px);
   }
   .filter-value {
-    font-weight: 600;
+    font-weight: var(--ha-font-weight-medium, 500);
   }
-  .notice {
-    padding: 16px;
-    border-radius: 12px;
-    background: color-mix(in srgb, var(--primary-text-color) 5%, transparent);
-    color: var(--secondary-text-color);
-    line-height: 1.5;
+  /* Mirrors ha-alert: a tinted surface with a leading icon in the tone colour. */
+  .alert {
+    --pap-alert-color: var(--info-color, var(--ha-color-fill-primary-loud-resting, var(--primary-color)));
+    display: flex;
+    align-items: flex-start;
+    gap: var(--ha-space-2, 8px);
+    margin-block-start: var(--ha-space-3, 12px);
+    padding: var(--ha-space-2, 8px) var(--ha-space-3, 12px);
+    border-radius: var(--ha-border-radius-sm, 4px);
+    background: color-mix(in srgb, var(--pap-alert-color) 12%, transparent);
+    color: var(--primary-text-color);
+    font-size: var(--ha-font-size-m, 14px);
+    line-height: var(--ha-line-height-normal, 1.6);
+    overflow-wrap: anywhere;
   }
-  .error {
-    color: var(--error-color);
-    margin-top: 12px;
-    font-size: 0.85rem;
+  header + .alert {
+    margin-block-start: 0;
+  }
+  .alert svg {
+    flex: none;
+    width: 24px;
+    height: 24px;
+    fill: var(--pap-alert-color);
+    stroke: none;
+  }
+  .alert.warning {
+    --pap-alert-color: var(--warning-color, var(--ha-color-fill-warning-loud-resting, #ffa600));
+  }
+  .alert.error {
+    --pap-alert-color: var(--error-color, var(--ha-color-fill-danger-loud-resting, #db4437));
   }
   .stepper {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: var(--ha-space-3, 12px);
+  }
+  .stepper .icon-button {
+    color: var(--pap-accent);
+    border-color: color-mix(in srgb, var(--pap-accent) 40%, transparent);
   }
   .target {
-    font-size: 1.8rem;
-    font-weight: 500;
+    font-size: var(--ha-font-size-3xl, 28px);
+    font-weight: var(--ha-font-weight-medium, 500);
+    font-variant-numeric: tabular-nums;
   }
-  .mode {
-    text-transform: capitalize;
+  /* Segmented switch: native radios keep arrow-key navigation and form semantics. */
+  fieldset.segmented {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  .segments {
+    display: flex;
+    gap: var(--ha-space-1, 4px);
+    padding: var(--ha-space-1, 4px);
+    border-radius: var(--ha-border-radius-pill, 9999px);
+    background: var(--ha-color-fill-neutral-quiet-resting, var(--secondary-background-color));
+  }
+  .segment {
+    position: relative;
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: 44px;
+    padding-inline: var(--ha-space-2, 8px);
+    border-radius: var(--ha-border-radius-pill, 9999px);
+    color: var(--secondary-text-color);
+    font-size: var(--ha-font-size-m, 14px);
+    font-weight: var(--ha-font-weight-medium, 500);
+    text-align: center;
+    cursor: pointer;
+  }
+  .segment input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .segment:has(input:checked) {
+    background: var(--ha-card-background, var(--card-background-color));
+    color: var(--pap-accent);
+    box-shadow: var(--ha-box-shadow-s, 0 1px 2px rgb(0 0 0 / 15%));
+  }
+  .segmented:disabled .segment {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
   .band-good {
     --pap-band: var(--pap-good-color, var(--ha-color-fill-success-loud-resting, var(--green-color, #4caf50)));
@@ -291,12 +321,12 @@ export const styles = css`
   .pill {
     flex-shrink: 0;
     padding: var(--ha-space-1, 4px) var(--ha-space-3, 12px);
-    border-radius: var(--ha-border-radius-pill, 999px);
+    border-radius: var(--ha-border-radius-pill, 9999px);
     background: color-mix(in srgb, var(--pap-band, var(--pap-accent)) 20%, transparent);
     color: var(--primary-text-color);
-    font-size: var(--ha-font-size-s, 0.8rem);
+    font-size: var(--ha-font-size-s, 12px);
     font-weight: var(--ha-font-weight-medium, 500);
-    line-height: 1.5;
+    line-height: var(--ha-line-height-normal, 1.6);
   }
   .pill::before {
     content: "";
@@ -304,27 +334,35 @@ export const styles = css`
     width: 8px;
     height: 8px;
     margin-inline-end: var(--ha-space-2, 8px);
-    border-radius: 50%;
+    border-radius: var(--ha-border-radius-circle, 50%);
     background: var(--pap-band, var(--pap-accent));
     vertical-align: middle;
   }
+  .hero .pill {
+    display: inline-block;
+    margin-block-start: var(--ha-space-2, 8px);
+    margin-inline-end: var(--ha-space-2, 8px);
+  }
   .summary {
-    margin: calc(-1 * var(--ha-space-2, 8px)) 0 var(--ha-space-5, 20px);
-    font-size: var(--ha-font-size-l, 1.1rem);
+    margin: 0 0 var(--ha-space-4, 16px);
+    font-size: var(--ha-font-size-l, 16px);
     font-weight: var(--ha-font-weight-medium, 500);
-    line-height: var(--ha-line-height-condensed, 1.3);
+    line-height: var(--ha-line-height-condensed, 1.2);
   }
   .metrics {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(92px, 100%), 1fr));
     gap: var(--ha-space-2, 8px);
   }
-  .metrics .tile {
+  .tile {
     display: flex;
     flex-direction: column;
     gap: var(--ha-space-1, 4px);
+    min-width: 0;
     padding: var(--ha-space-3, 12px);
+    border: 0;
     border-radius: var(--ha-border-radius-lg, 12px);
+    text-align: start;
     background: var(--ha-card-background, var(--card-background-color));
     background-image: linear-gradient(
       color-mix(in srgb, var(--primary-text-color) 4%, transparent),
@@ -332,43 +370,36 @@ export const styles = css`
     );
   }
   .metric-label {
-    font-size: var(--ha-font-size-m, 0.875rem);
-    font-weight: var(--ha-font-weight-medium, 500);
+    overflow: hidden;
     color: var(--secondary-text-color);
+    font-size: var(--ha-font-size-m, 14px);
+    font-weight: var(--ha-font-weight-medium, 500);
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
   .metrics .value {
-    margin: 0;
-    font-size: var(--ha-font-size-3xl, 1.75rem);
+    font-size: var(--ha-font-size-3xl, 28px);
     white-space: nowrap;
-  }
-  .metric-label {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
   .meter {
     display: block;
     height: 6px;
     margin-block: var(--ha-space-1, 4px);
-    border-radius: var(--ha-border-radius-pill, 999px);
-    background: color-mix(in srgb, var(--pap-band, var(--pap-accent)) 18%, transparent);
     overflow: hidden;
+    border-radius: var(--ha-border-radius-pill, 9999px);
+    background: color-mix(in srgb, var(--pap-band, var(--pap-accent)) 18%, transparent);
   }
   .meter span {
     display: block;
     height: 100%;
     border-radius: inherit;
     background: var(--pap-band, var(--pap-accent));
-    transition: width var(--ha-animation-duration-slow, 0.35s) ease;
-  }
-  .hero .pill {
-    display: inline-block;
-    margin: var(--ha-space-2, 8px) var(--ha-space-2, 8px) 0 0;
+    transition: width var(--ha-animation-duration-slow, 350ms) ease;
   }
   .trend-button {
     display: block;
     width: 100%;
-    margin-top: var(--ha-space-4, 16px);
+    margin-block-start: var(--ha-space-4, 16px);
     padding: var(--ha-space-3, 12px);
     border: 0;
     border-radius: var(--ha-border-radius-lg, 12px);
@@ -384,7 +415,7 @@ export const styles = css`
     flex-wrap: wrap;
     justify-content: space-between;
     gap: var(--ha-space-1, 4px) var(--ha-space-3, 12px);
-    margin-bottom: var(--ha-space-2, 8px);
+    margin-block-end: var(--ha-space-2, 8px);
   }
   .trend svg {
     display: block;
@@ -416,16 +447,18 @@ export const styles = css`
     stroke-dasharray: 4 4;
     vector-effect: non-scaling-stroke;
   }
+  /* Time runs left to right in every locale, matching the SVG and Home Assistant charts. */
   .trend-axis {
+    direction: ltr;
     display: flex;
     justify-content: space-between;
-    margin-top: var(--ha-space-1, 4px);
+    margin-block-start: var(--ha-space-1, 4px);
   }
   .climate {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr));
     gap: var(--ha-space-2, 8px);
-    margin-top: var(--ha-space-2, 8px);
+    margin-block-start: var(--ha-space-2, 8px);
   }
   .climate-item {
     display: flex;
@@ -440,9 +473,9 @@ export const styles = css`
   .climate-icon {
     display: inline-flex;
     padding: var(--ha-space-2, 8px);
-    border-radius: 50%;
+    border-radius: var(--ha-border-radius-circle, 50%);
     color: var(--pap-accent);
-    background: color-mix(in srgb, var(--pap-accent) 14%, transparent);
+    background: color-mix(in srgb, var(--pap-accent) 20%, transparent);
   }
   .climate-icon svg {
     width: 20px;
@@ -454,7 +487,7 @@ export const styles = css`
     min-width: 0;
   }
   .climate-value {
-    font-size: var(--ha-font-size-l, 1.1rem);
+    font-size: var(--ha-font-size-l, 16px);
     font-weight: var(--ha-font-weight-medium, 500);
     font-variant-numeric: tabular-nums;
   }
@@ -462,21 +495,17 @@ export const styles = css`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: var(--ha-space-2, 8px);
+    margin-block-end: var(--ha-space-2, 8px);
   }
   .controls-head .section-title {
     margin: 0;
     color: var(--secondary-text-color);
   }
-  .icon-button.plain {
-    border: 0;
-    color: var(--pap-accent);
-  }
   .round-row {
     display: flex;
     justify-content: center;
     gap: var(--ha-space-8, 32px);
-    margin-bottom: var(--ha-space-5, 20px);
+    margin-block-end: var(--ha-space-4, 16px);
   }
   .round {
     display: flex;
@@ -488,8 +517,8 @@ export const styles = css`
   .round .icon-button {
     width: 64px;
     height: 64px;
-    padding: 18px;
-    border-width: 2px;
+    padding: var(--ha-space-4, 16px);
+    border-width: var(--ha-border-width-md, 2px);
   }
   .round .icon-button svg {
     width: 28px;
@@ -508,46 +537,46 @@ export const styles = css`
     font-weight: var(--ha-font-weight-medium, 500);
   }
   .mode-button {
-    min-height: 64px;
     border-color: transparent;
     color: var(--pap-accent);
     background: color-mix(in srgb, var(--pap-accent) 12%, transparent);
-    font-size: var(--ha-font-size-xl, 20px);
   }
   .mode-button svg {
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
   }
   .control-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--ha-space-3, 12px);
-    margin-top: var(--ha-space-3, 12px);
+    gap: var(--ha-space-2, 8px);
+    margin-block-start: var(--ha-space-2, 8px);
   }
-  .control-tile {
-    border-width: 2px;
-  }
-  .control-tile[aria-pressed="true"] {
-    border-color: transparent;
+  .control-tile span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   dialog {
-    width: min(420px, calc(100vw - 32px));
-    box-sizing: border-box;
+    width: min(420px, calc(100vw - 2 * var(--ha-space-4, 16px)));
     padding: var(--ha-space-6, 24px);
     border: 0;
-    border-radius: var(--ha-border-radius-3xl, 28px);
+    border-radius: var(--ha-dialog-border-radius, var(--ha-border-radius-4xl, 28px));
     background: var(--ha-card-background, var(--card-background-color));
     color: var(--primary-text-color);
     box-shadow: var(--ha-box-shadow-l, 0 12px 48px rgb(0 0 0 / 30%));
   }
   dialog[open] {
-    animation: pap-sheet-in var(--ha-animation-duration-normal, 0.25s) ease-out;
+    animation: pap-sheet-in var(--ha-animation-duration-normal, 250ms) ease-out;
   }
   @keyframes pap-sheet-in {
     from {
       opacity: 0;
       transform: translateY(16px);
     }
+  }
+  dialog::backdrop {
+    background: rgb(0 0 0 / 45%);
   }
   .sheet-close {
     position: absolute;
@@ -556,44 +585,13 @@ export const styles = css`
     border: 0;
     color: var(--secondary-text-color);
   }
-  .sheet-actions {
-    display: flex;
-    flex-direction: row-reverse;
-    gap: var(--ha-space-2, 8px);
-    margin-top: var(--ha-space-6, 24px);
-  }
-  .sheet-actions .apply,
-  .sheet-actions .cancel {
-    width: auto;
-    margin: 0;
-    padding-inline: var(--ha-space-6, 24px);
-  }
-  /* Home Assistant shows choice dialogs as bottom sheets on phones. */
-  @media (max-width: 870px) {
-    dialog {
-      width: 100%;
-      max-width: none;
-      margin: auto 0 0;
-      border-end-start-radius: 0;
-      border-end-end-radius: 0;
-      padding-bottom: calc(var(--ha-space-6, 24px) + env(safe-area-inset-bottom, 0px));
-    }
-    .sheet-actions {
-      flex-direction: column;
-    }
-    .sheet-actions .apply,
-    .sheet-actions .cancel {
-      width: 100%;
-    }
-  }
-  dialog::backdrop {
-    background: rgb(0 0 0 / 45%);
-  }
   dialog h3 {
     margin: 0 0 var(--ha-space-5, 20px);
+    padding-inline: var(--ha-space-12, 48px);
     text-align: center;
     font-size: var(--ha-font-size-xl, 20px);
-    font-weight: var(--ha-font-weight-bold, 600);
+    font-weight: var(--ha-font-weight-normal, 400);
+    line-height: 48px;
   }
   .choices {
     display: flex;
@@ -601,6 +599,10 @@ export const styles = css`
     gap: var(--ha-space-1, 4px);
     max-height: 50vh;
     overflow-y: auto;
+  }
+  .choices.compact {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .choice {
     display: flex;
@@ -614,53 +616,70 @@ export const styles = css`
     font-size: var(--ha-font-size-l, 16px);
     font-weight: var(--ha-font-weight-medium, 500);
   }
-  .choices.compact {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .choices:focus-visible {
-    outline: none;
-  }
   .choice svg {
     width: 28px;
     height: 28px;
   }
+  .choice[aria-checked="true"] {
+    background: color-mix(in srgb, var(--pap-accent) 20%, transparent);
+  }
   .choice:focus-visible,
   .apply:focus-visible,
   .cancel:focus-visible {
-    outline-offset: -3px;
+    outline-offset: -2px;
   }
-  .choice[aria-checked="true"] {
-    background: color-mix(in srgb, var(--pap-accent) 12%, transparent);
+  .sheet-actions {
+    display: flex;
+    flex-direction: row-reverse;
+    gap: var(--ha-space-2, 8px);
+    margin-block-start: var(--ha-space-6, 24px);
   }
   .apply,
   .cancel {
-    display: block;
-    width: 100%;
-    margin-top: var(--ha-space-4, 16px);
+    padding-inline: var(--ha-space-6, 24px);
     border: 0;
     border-radius: var(--ha-border-radius-pill, 9999px);
     font-weight: var(--ha-font-weight-medium, 500);
   }
   .apply {
-    min-height: 48px;
     color: var(--ha-color-on-primary-loud, var(--text-primary-color, #fff));
     background: var(--ha-color-fill-primary-loud-resting, var(--primary-color));
   }
-  .apply:hover {
+  .apply:hover:not(:disabled) {
     background: var(--ha-color-fill-primary-loud-hover, var(--primary-color));
   }
   .cancel {
-    color: var(--pap-accent);
+    color: var(--primary-color);
+  }
+  /* Home Assistant shows choice dialogs as bottom sheets on phones. */
+  @media (max-width: 870px) {
+    dialog {
+      width: 100%;
+      max-width: none;
+      margin: auto 0 0;
+      border-end-start-radius: 0;
+      border-end-end-radius: 0;
+      padding-block-end: calc(var(--ha-space-6, 24px) + env(safe-area-inset-bottom, 0px));
+    }
+    .sheet-actions {
+      flex-direction: column;
+    }
   }
   @container (max-width: 360px) {
     .body {
-      padding: 16px;
+      padding: var(--ha-space-4, 16px);
     }
     .hero {
-      margin-inline: -16px;
-      padding: 16px;
-      gap: 16px;
+      gap: var(--ha-space-4, 16px);
+      margin-inline: calc(-1 * var(--ha-space-4, 16px));
+      padding-inline: var(--ha-space-4, 16px);
+    }
+    .hero svg {
+      width: 48px;
+      height: 70px;
+    }
+    .round-row {
+      gap: var(--ha-space-6, 24px);
     }
   }
   @media (prefers-reduced-motion: reduce) {

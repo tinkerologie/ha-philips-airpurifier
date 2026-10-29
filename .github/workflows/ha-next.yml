@@ -1,0 +1,325 @@
+name: HA Next
+
+# Early warning for upcoming Home Assistant releases, on two channels:
+# - release: the newest Home Assistant on PyPI, beta included;
+# - dev: the head of Core's dev branch, weeks before the next beta.
+# Removals and deprecations show up before the release ships. It never blocks a
+# merge: the jobs continue on error, and scheduled or manual runs on main open
+# (or close) one issue per channel, labelled ha-next and bug, instead.
+on:
+  schedule:
+    - cron: 0 3 * * 1
+      timezone: Australia/Brisbane
+  workflow_dispatch:
+    inputs:
+      ha_version:
+        description: Release channel version to test (blank for the newest, beta included)
+        required: false
+        default: ""
+  pull_request:
+    paths:
+      - pyproject.toml
+      - custom_components/philips_airpurifier/manifest.json
+      - script/import_smoke.py
+      - script/hassfest
+      - .github/workflows/ha-next.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  ha-next:
+    name: Next Home Assistant (${{ matrix.channel }})
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        channel: [release, dev]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: latest
+          enable-cache: true
+
+      - name: Set up Python
+        run: |
+          uv python install 3.14.2
+          uv venv --python 3.14.2
+          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
+          # script/hassfest and uv pip use the active virtual environment.
+          echo "VIRTUAL_ENV=$GITHUB_WORKSPACE/.venv" >> "$GITHUB_ENV"
+
+      - name: Resolve Home Assistant version
+        id: resolve
+        env:
+          CHANNEL: ${{ matrix.channel }}
+          REQUESTED_VERSION: ${{ inputs.ha_version }}
+        run: |
+          if [[ "$CHANNEL" == dev ]]; then
+            # Pin one commit so the install and Hassfest test the same Core.
+            revision=$(git ls-remote https://github.com/home-assistant/core.git refs/heads/dev | cut -f1)
+            if [[ ! "$revision" =~ ^[a-f0-9]{40}$ ]]; then
+              echo "::error::Could not resolve the head of Core's dev branch"
+              exit 1
+            fi
+            echo "Home Assistant dev at $revision"
+            {
+              echo "ha_version=dev@${revision:0:12}"
+              echo "requirement=homeassistant @ https://github.com/home-assistant/core/archive/$revision.tar.gz"
+              echo "hassfest_version=dev"
+              echo "hassfest_ref=$revision"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ -n "${REQUESTED_VERSION:-}" ]]; then
+            if [[ ! "$REQUESTED_VERSION" =~ ^[0-9]{4}\.[0-9]+\.[0-9]+((a|b|rc)[0-9]+)?$ ]]; then
+              echo "::error::Invalid Home Assistant version: $REQUESTED_VERSION"
+              exit 1
+            fi
+            ha_version="$REQUESTED_VERSION"
+          else
+            # Newest non-yanked release, pre-releases included; when no beta is
+            # out this is the latest stable release.
+            ha_version=$(curl -fsSL --retry 3 https://pypi.org/pypi/homeassistant/json |
+              uv run --no-project --with packaging python -c '
+          import json, sys
+          from packaging.version import Version
+          releases = json.load(sys.stdin)["releases"]
+          print(max(
+              (v for v, files in releases.items()
+               if files and not all(f.get("yanked") for f in files)),
+              key=Version,
+          ))
+          ')
+          fi
+          echo "Home Assistant $ha_version"
+          {
+            echo "ha_version=$ha_version"
+            echo "requirement=homeassistant==$ha_version"
+            echo "hassfest_version=$ha_version"
+            echo "hassfest_ref="
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Install Home Assistant and the test harness
+        id: install
+        env:
+          CHANNEL: ${{ matrix.channel }}
+          HA_VERSION: ${{ steps.resolve.outputs.ha_version }}
+          REQUIREMENT: ${{ steps.resolve.outputs.requirement }}
+        run: |
+          # pytest-homeassistant-custom-component pins one Home Assistant version
+          # and often lags a beta by days; it never matches Core dev. Without a
+          # match, run only the import smoke test. The harness and pytest floors
+          # stop the resolver from falling back to an ancient harness release
+          # that pins whatever Home Assistant is requested.
+          mapfile -t integration_requirements < <(jq -r '.requirements[]' custom_components/philips_airpurifier/manifest.json)
+          # Hassfest imports tqdm and ruff (packages/hassfest) and, for its device-class validator,
+          # infrared-protocols; without the harness nothing else installs them.
+          if [[ "$CHANNEL" == release ]] && uv pip install "$REQUIREMENT" "${integration_requirements[@]}" infrared-protocols tqdm ruff \
+            "pytest-homeassistant-custom-component>=0.13" "pytest>=8.0.0" "pytest-asyncio>=0.23.0" "pytest-cov>=4.0.0"; then
+            echo "harness=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::No pytest-homeassistant-custom-component release installs with Home Assistant $HA_VERSION; running the import smoke test only"
+            echo "harness=false" >> "$GITHUB_OUTPUT"
+            uv pip install "$REQUIREMENT" "${integration_requirements[@]}" infrared-protocols tqdm ruff
+          fi
+          python -c "from homeassistant.const import __version__; print('Installed Home Assistant', __version__)"
+
+      - name: Import every module and check for deprecations
+        id: smoke
+        continue-on-error: true
+        run: python script/import_smoke.py
+
+      - name: Run tests with deprecation checks
+        id: tests
+        if: steps.install.outputs.harness == 'true'
+        continue-on-error: true
+        run: pytest --no-cov -q
+
+      - name: Validate with Hassfest from the same release
+        id: hassfest
+        continue-on-error: true
+        env:
+          HA_VERSION: ${{ steps.resolve.outputs.hassfest_version }}
+          HA_CORE_REF: ${{ steps.resolve.outputs.hassfest_ref }}
+        run: ./script/hassfest --skip-plugins ""
+
+      - name: Summarize
+        id: summary
+        if: always()
+        env:
+          CHANNEL: ${{ matrix.channel }}
+          HA_VERSION: ${{ steps.resolve.outputs.ha_version }}
+          INSTALL: ${{ steps.install.outcome }}
+          HARNESS: ${{ steps.install.outputs.harness }}
+          SMOKE: ${{ steps.smoke.outcome }}
+          TESTS: ${{ steps.tests.outcome }}
+          HASSFEST: ${{ steps.hassfest.outcome }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          # A check that never ran fails too: a step that stops the job, such as
+          # resolving the version, skips every check after it. Only the tests
+          # may be skipped, and only when no matching harness exists.
+          status=success
+          if [[ "$JOB_STATUS" != success ]]; then
+            status=failure
+          fi
+          for outcome in "$INSTALL" "$SMOKE" "$HASSFEST"; do
+            if [[ "$outcome" != success ]]; then
+              status=failure
+            fi
+          done
+          if [[ "$HARNESS" == true && "$TESTS" != success ]]; then
+            status=failure
+          fi
+          if [[ "$HARNESS" == true ]]; then
+            tests="$TESTS"
+          else
+            tests="skipped: no pytest-homeassistant-custom-component for this version"
+          fi
+          {
+            echo "## Home Assistant ${HA_VERSION:-unresolved}"
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Install | ${INSTALL:-not run} |"
+            echo "| Import smoke | ${SMOKE:-not run} |"
+            echo "| Tests | ${tests:-not run} |"
+            echo "| Hassfest | ${HASSFEST:-not run} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          mkdir -p ha-next-result
+          jq -n --arg channel "$CHANNEL" --arg version "${HA_VERSION:-unresolved}" --arg status "$status" \
+            '{channel: $channel, version: $version, status: $status}' > "ha-next-result/$CHANNEL.json"
+          if [[ "$status" == failure ]]; then
+            echo "::error::Home Assistant ${HA_VERSION:-unresolved} breaks or deprecates something the integration uses"
+            exit 1
+          fi
+
+      # Matrix jobs cannot each set a job output, so the report reads these files.
+      - name: Upload the channel result
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ha-next-${{ matrix.channel }}
+          path: ha-next-result/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  report:
+    name: Report
+    needs: ha-next
+    if: ${{ always() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read # download the channel results
+      issues: write # open, update and close the ha-next issues
+    steps:
+      - name: Download the channel results
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true # a channel that stopped early uploaded nothing
+        with:
+          pattern: ha-next-*
+          path: ha-next-result
+          merge-multiple: true
+
+      - name: Open, update or close the ha-next issues
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require("node:fs");
+            const { owner, repo } = context.repo;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            // bug lets CodeRabbit plan the fix as soon as the issue opens.
+            const labels = [
+              { name: "ha-next", color: "fbca04", description: "Breakage or deprecation in the next Home Assistant release" },
+              { name: "bug", color: "d73a4a", description: "Something isn't working" },
+            ];
+            const channels = {
+              release: "Upcoming Home Assistant release breaks or deprecates something we use",
+              dev: "Home Assistant Core dev breaks or deprecates something we use",
+            };
+
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              labels: "ha-next",
+              state: "open",
+              per_page: 50,
+            });
+
+            for (const [channel, title] of Object.entries(channels)) {
+              let result = { version: "unresolved", status: "failure" };
+              try {
+                result = JSON.parse(fs.readFileSync(`ha-next-result/${channel}.json`, "utf8"));
+              } catch {
+                // No result means the job stopped before its summary step.
+              }
+              const marker = `<!-- ha-next:${channel} -->`;
+              const issue = open.find((item) => !item.pull_request && item.body?.includes(marker));
+
+              if (result.status === "success") {
+                if (issue) {
+                  await github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number: issue.number,
+                    body: `Home Assistant ${result.version} passes again: ${runUrl}`,
+                  });
+                  await github.rest.issues.update({
+                    owner,
+                    repo,
+                    issue_number: issue.number,
+                    state: "closed",
+                    state_reason: "completed",
+                  });
+                }
+                continue;
+              }
+
+              const body = [
+                marker,
+                `The HA Next workflow failed on the ${channel} channel against Home Assistant ${result.version}.`,
+                "",
+                `Run log: ${runUrl}`,
+                "",
+                "See the run summary for which check failed (install, import smoke, tests or Hassfest),",
+                "and the deprecation section of `CONTRIBUTING.md` for what to do.",
+              ].join("\n");
+
+              if (issue) {
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: issue.number,
+                  body,
+                });
+                continue;
+              }
+
+              for (const label of labels) {
+                try {
+                  await github.rest.issues.getLabel({ owner, repo, name: label.name });
+                } catch (error) {
+                  if (error.status !== 404) throw error;
+                  await github.rest.issues.createLabel({ owner, repo, ...label });
+                }
+              }
+              await github.rest.issues.create({
+                owner,
+                repo,
+                title,
+                labels: labels.map((label) => label.name),
+                body,
+              });
+            }

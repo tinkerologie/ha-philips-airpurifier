@@ -20,12 +20,14 @@ from custom_components.philips_airpurifier.coordinator import (
 )
 from custom_components.philips_airpurifier.model import DeviceInformation
 from homeassistant.components.climate import (
+    ATTR_CURRENT_TEMPERATURE,
     ATTR_HVAC_MODE,
     ATTR_PRESET_MODE,
     ATTR_SWING_MODE,
     DOMAIN as CLIMATE_DOMAIN,
     SWING_OFF,
     SWING_ON,
+    ClimateEntity,
     HVACMode,
 )
 from homeassistant.config_entries import ConfigEntryState
@@ -36,6 +38,7 @@ from homeassistant.const import (
     CONF_NAME,
     SERVICE_TURN_OFF,
     SERVICE_TURN_ON,
+    UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
@@ -54,7 +57,7 @@ MOCK_STATUS_HEATER: dict = {
     "D03102": 1,  # NEW2_POWER (on)
     "D0310A": 3,  # NEW2_MODE_A
     "D0310C": 0,  # NEW2_MODE_B (auto_plus)
-    "D03224": 22,  # NEW2_TEMPERATURE (current temp)
+    "D03224": 223,  # NEW2_TEMPERATURE (current temp, tenths of a degree)
     "D0310E": 25,  # NEW2_TARGET_TEMP (target temp)
     "D0320F": 0,  # NEW2_OSCILLATION (off)
     "D03103": 0,  # NEW2_CHILD_LOCK (off)
@@ -63,7 +66,6 @@ MOCK_STATUS_HEATER: dict = {
     "modelid": HEATER_MODEL,
     # Sensors
     "D03125": 50,  # humidity
-    "temp": 22,
 }
 
 
@@ -576,6 +578,49 @@ async def test_climate_target_temperature(
     assert float(state.attributes.get("temperature")) == 25.0
 
 
+async def test_climate_temperatures_follow_device_updates(
+    hass: HomeAssistant,
+    init_heater_integration: MockConfigEntry,
+) -> None:
+    """Test the current and target temperatures follow device updates, in Celsius.
+
+    Real CX3120 status reports carry the room temperature only in D03224, in tenths.
+    """
+    entity_id = _get_climate_entity_id(hass, init_heater_integration)
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.attributes[ATTR_CURRENT_TEMPERATURE] == 22.3
+    assert state.attributes[ATTR_TEMPERATURE] == 25
+
+    coordinator = init_heater_integration.runtime_data
+    coordinator.async_set_updated_data({**coordinator.data, "D03224": 194, "D0310E": 27})
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.attributes[ATTR_CURRENT_TEMPERATURE] == 19.4
+    assert state.attributes[ATTR_TEMPERATURE] == 27
+
+    coordinator.async_set_updated_data({k: v for k, v in coordinator.data.items() if k != "D03224"})
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.attributes[ATTR_CURRENT_TEMPERATURE] is None
+    assert hass.config.units.temperature_unit == UnitOfTemperature.CELSIUS
+
+
+def test_climate_provides_only_the_temperature_api_home_assistant_reads() -> None:
+    """Test the heater provides the native temperature members, and the old ones only before 2026.11."""
+    native_api = hasattr(ClimateEntity, "native_target_temperature")
+    members = vars(PhilipsHeater)
+
+    assert members["_attr_native_temperature_unit"] == UnitOfTemperature.CELSIUS
+    assert {"native_target_temperature", "native_current_temperature"} <= members.keys()
+    for legacy in ("_attr_temperature_unit", "target_temperature", "current_temperature"):
+        assert (legacy in members) is not native_api
+
+
 async def test_climate_is_on(
     hass: HomeAssistant,
     init_heater_integration: MockConfigEntry,
@@ -646,7 +691,7 @@ async def test_climate_no_oscillation_model_swing_paths(hass: HomeAssistant) -> 
     coordinator.data = {
         "D03102": 1,
         "D0310E": 22,
-        "temp": 21,
+        "D03224": 210,
         "D0310A": 3,
         "D0310C": 0,
     }

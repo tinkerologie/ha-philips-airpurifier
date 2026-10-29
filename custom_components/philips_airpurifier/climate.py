@@ -26,6 +26,11 @@ _LOGGER = logging.getLogger(__name__)
 
 PARALLEL_UPDATES = 0
 
+# Home Assistant 2026.11 reads temperatures from the native_* members and logs a
+# deprecation for the old ones, which stop working in 2027.11. Older releases
+# only read the old ones.
+_HAS_NATIVE_TEMPERATURE_API = hasattr(ClimateEntity, "native_target_temperature")
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -42,7 +47,7 @@ async def async_setup_entry(
 class PhilipsHeater(PhilipsAirPurifierEntity, ClimateEntity):  # pyright: ignore[reportIncompatibleVariableOverride]
     """Philips AirPurifier heater."""
 
-    _attr_temperature_unit: str = UnitOfTemperature.CELSIUS
+    _attr_native_temperature_unit: str = UnitOfTemperature.CELSIUS
     _attr_hvac_modes: list[HVACMode] = [
         HVACMode.OFF,
         HVACMode.HEAT,
@@ -60,7 +65,6 @@ class PhilipsHeater(PhilipsAirPurifierEntity, ClimateEntity):  # pyright: ignore
         super().__init__(coordinator)
 
         model_config = coordinator.model_config
-        latest_status = coordinator.data or {}
 
         self._description = HEATER_TYPES[kind]
         self._attr_translation_key = "pap"
@@ -75,8 +79,7 @@ class PhilipsHeater(PhilipsAirPurifierEntity, ClimateEntity):  # pyright: ignore
 
         self._attr_min_temp = self._description[FanAttributes.MIN_TEMPERATURE]
         self._attr_max_temp = self._description[FanAttributes.MAX_TEMPERATURE]
-        self._attr_target_temperature = latest_status.get(self._temperature_target_key)
-        self._attr_current_temperature = latest_status.get(self._description[FanAttributes.TEMPERATURE])
+        self._current_temperature_key = self._description[FanAttributes.TEMPERATURE]
 
         self._attr_supported_features = (
             ClimateEntityFeature.TARGET_TEMPERATURE
@@ -95,9 +98,31 @@ class PhilipsHeater(PhilipsAirPurifierEntity, ClimateEntity):  # pyright: ignore
             self._oscillation_modes = None
 
     @property
-    def target_temperature(self) -> int | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+    def native_target_temperature(self) -> float | None:
         """Return the target temperature."""
         return self._device_status.get(self._temperature_target_key)
+
+    @property
+    def native_current_temperature(self) -> float | None:
+        """Return the current temperature, reported in tenths of a degree."""
+        value = self._device_status.get(self._current_temperature_key)
+        if isinstance(value, int | float):
+            return value / 10
+        return None
+
+    # Delete this block once the minimum Home Assistant version is 2026.11.
+    if not _HAS_NATIVE_TEMPERATURE_API:  # pragma: no cover
+        _attr_temperature_unit: str = UnitOfTemperature.CELSIUS
+
+        @property
+        def target_temperature(self) -> float | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+            """Return the target temperature."""
+            return self.native_target_temperature
+
+        @property
+        def current_temperature(self) -> float | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+            """Return the current temperature."""
+            return self.native_current_temperature
 
     @property
     def hvac_mode(self) -> HVACMode | None:  # pragma: no cover  # pyright: ignore[reportIncompatibleVariableOverride]

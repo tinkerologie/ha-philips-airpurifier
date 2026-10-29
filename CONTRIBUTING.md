@@ -109,6 +109,21 @@ mypy custom_components
 pre-commit run --all-files
 ```
 
+### Deprecations and Upcoming Home Assistant Releases
+
+- **Current release (blocking):** `./script/test` fails on deprecated use by the integration.
+  - `pyproject.toml` `filterwarnings` turns `DeprecationWarning` and `PendingDeprecationWarning` raised from `custom_components.philips_airpurifier` modules into errors. Third-party deprecations keep the default action.
+  - Home Assistant logs, rather than warns, when an integration uses a deprecated API (`report_usage`, deprecated constants, classes and functions) or when an entity class still defines a deprecated attribute (`custom_components.philips_airpurifier.<module>::<Class> provides the deprecated <name>`). `tests/fixtures/deprecations.py` collects those log lines when they name `philips_airpurifier`, and the autouse `fail_on_ha_deprecation_reports` fixture in `tests/conftest.py` fails the test that logged one. `tests/__init__.py` installs the handler before the integration is imported, so import-time reports surface on the first test. Fix the call in the integration; do not silence the check.
+  - `tests/test_import_smoke.py` also runs `script/import_smoke.py` in a clean interpreter, which imports every module against the installed Home Assistant, so a module another test already imported cannot hide a class-definition report.
+- **Next release (early warning, non-blocking):** `.github/workflows/ha-next.yml` runs weekly, on demand, and on PRs that touch `pyproject.toml`, `manifest.json`, `script/import_smoke.py` or `script/hassfest`, on two channels:
+  - `release`: the newest Home Assistant on PyPI, beta included. It runs `python script/import_smoke.py`, the tests (only when a matching `pytest-homeassistant-custom-component` release installs; the job summary says when none does) and `HA_VERSION=<version> ./script/hassfest --skip-plugins ""`.
+  - `dev`: the head of Core's `dev` branch, pinned to one commit. It runs the import smoke test and `HA_VERSION=dev HA_CORE_REF=<commit> ./script/hassfest` at that commit.
+  - Scheduled and manual runs on `main` keep one issue per channel, labelled `ha-next` and `bug`, and close it when the channel passes again.
+- **Developer blog (early warning, non-blocking):** `.github/workflows/ha-dev-blog.yml` runs weekly and on demand (input `days`, default 22). `script/ha_dev_blog.py` reads the developer blog feed and searches `custom_components/philips_airpurifier/` for the code identifiers named next to an announced deprecation, removal or breaking change. It opens one `ha-dev-blog` and `enhancement` issue per post that names something the integration uses, and never a second one for the same post. Run it locally with `python3 script/ha_dev_blog.py --days 30`.
+- **When ha-next fails:** open the run linked from the `ha-next` issue and read the job summary.
+  - Import smoke or test failure: reproduce it in a scratch venv with `uv pip install "homeassistant==<version>" "philips-airctrl==<pin>"` (for the dev channel, `"homeassistant @ https://github.com/home-assistant/core/archive/<commit>.tar.gz"`) and `python script/import_smoke.py`, then fix it with an API that also works on the minimum supported Home Assistant (feature-detect the new API, as `climate.py` does for the native temperature members).
+  - Hassfest failure: run the same command locally; a new validator rule or a changed Core layout may need a `script/hassfest` change. Core 2026.11 moved the validator into `packages/hassfest`, which the script adds to its sparse checkout and `PYTHONPATH`.
+
 ---
 
 ## Commit Message Guidelines

@@ -44,12 +44,19 @@ export class PhilipsAirPurifierCardEditor extends LitElement {
         name: "entity",
         selector: { entity: { ...include, filter: [{ domain: role, integration: "philips_airpurifier" }] } },
       });
-    for (const name of booleanFields[kind] ?? []) schema.push({ name, selector: { boolean: {} } });
+    // Grouped like the built-in card editors; flatten keeps the options at the top level of the config.
+    schema.push({
+      name: "display",
+      type: "expandable",
+      flatten: true,
+      expanded: true,
+      schema: (booleanFields[kind] ?? []).map((name) => ({ name, selector: { boolean: {} } })),
+    });
     return html`<ha-form
       .hass=${this.hass}
       .data=${{ ...Object.fromEntries((booleanFields[kind] ?? []).map((name) => [name, true])), ...this.config }}
       .schema=${schema}
-      .computeLabel=${(s: { name: string }) => ({ device_id: "Device", entity: "Control entity (optional override)", name: "Name (optional)", sensors: "Air-quality sensors (optional, ordered)" })[s.name] ?? { show_presets: "Show mode controls", show_speed: "Show fan speed", show_filter: "Show filter health", show_pm25: "Show PM2.5", show_target_control: "Show target controls", show_mode: "Show modes", show_water_level: "Show water level", show_trend: "Show 24-hour PM2.5 trend", show_climate: "Show humidity and temperature" }[s.name] ?? s.name.replaceAll("_", " ")}
+      .computeLabel=${(s: { name: string }) => ({ display: "Display options", device_id: "Device", entity: "Control entity (optional override)", name: "Name (optional)", sensors: "Air-quality sensors (optional, ordered)" })[s.name] ?? { show_presets: "Show mode controls", show_speed: "Show fan speed", show_filter: "Show filter health", show_pm25: "Show PM2.5", show_target_control: "Show target controls", show_mode: "Show modes", show_water_level: "Show water level", show_trend: "Show 24-hour PM2.5 trend", show_climate: "Show humidity and temperature" }[s.name] ?? s.name.replaceAll("_", " ")}
       @value-changed=${this.changed}
     ></ha-form>`;
   }

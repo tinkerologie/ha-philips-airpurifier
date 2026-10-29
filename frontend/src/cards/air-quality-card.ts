@@ -1,5 +1,5 @@
 import { html, nothing, type PropertyValues } from "lit";
-import { PhilipsAirPurifierBaseCard } from "../base-card";
+import { PhilipsAirPurifierBaseCard, alert } from "../base-card";
 import { finite, stubConfig } from "../discovery";
 import { humidityIcon, temperatureIcon } from "../icons";
 import {
@@ -44,8 +44,9 @@ export class PhilipsAirPurifierAirQualityCard extends PhilipsAirPurifierBaseCard
   static getStubConfig(hass: HomeAssistant) {
     return stubConfig(hass, this.cardType, "air");
   }
-  protected override updated(changed: PropertyValues<this>): void {
-    super.updated(changed);
+  // State set here joins the current render instead of scheduling a second one.
+  protected override willUpdate(changed: PropertyValues<this>): void {
+    super.willUpdate(changed);
     const pm25 = this.config.show_trend !== false && this.hass ? this.caps("pm25")[0] : undefined;
     if (!pm25 || !this.hass) {
       this.trendKey = "";
@@ -81,7 +82,7 @@ export class PhilipsAirPurifierAirQualityCard extends PhilipsAirPurifierBaseCard
           guard !== nothing
             ? guard
             : !sensors.length
-              ? html`<div class="notice">This device does not expose air-quality sensors.</div>`
+              ? alert("This device does not expose air-quality sensors.")
               : html`${overall ? html`<p class="summary">${bandSummary[overall]}</p>` : nothing}
                   <div class="metrics">${sensors.map((c) => this.tile(c))}</div>
                   ${this.renderTrend()} ${this.renderClimate()}`
