@@ -66,10 +66,19 @@ This integration includes automatic reconnection attempts, but they may not alwa
 
 ### Manual Installation
 
-1. **Download**: Download the latest release from the [releases page](https://github.com/tinkerologie/ha-philips-airpurifier/releases)
-2. **Extract**: Extract the `custom_components/philips_airpurifier` folder to your Home Assistant `custom_components` directory
+1. **Download**: Download `philips_airpurifier.zip` from the latest release on the [releases page](https://github.com/tinkerologie/ha-philips-airpurifier/releases)
+2. **Extract**: Create the folder `config/custom_components/philips_airpurifier/` and extract the zip into it. `manifest.json` must end up directly in that folder
 3. **Restart**: Restart Home Assistant
 4. **Configure**: Follow the [Configuration](#️-configuration) steps below
+
+Each release from 2026.10.4 on carries `philips_airpurifier.zip`, a `SHA256SUMS` file and a signed build provenance attestation. HACS and the Home Assistant Marketplace install the same zip. The "Downloaded N times" figure they show is the download count of the latest release's zip, so it starts again with each release. To check that a zip you downloaded is the one the release workflow built:
+
+```bash
+gh attestation verify philips_airpurifier.zip -R tinkerologie/ha-philips-airpurifier
+sha256sum -c SHA256SUMS
+```
+
+Keep `SHA256SUMS` in the same folder as the zip. On macOS, use `shasum -a 256 -c SHA256SUMS`.
 
 ## Configuration
 

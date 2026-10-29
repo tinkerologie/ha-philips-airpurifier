@@ -12,6 +12,10 @@ updates:
       - dependencies
     commit-message:
       prefix: chore(deps)
+    # requirements_test_min.txt pins the oldest supported Home Assistant (the HACS
+    # floor) on purpose; bumping it fails script/ha-version-sync and the minimum CI job.
+    exclude-paths:
+      - requirements_test_min.txt
     groups:
       homeassistant:
         patterns:

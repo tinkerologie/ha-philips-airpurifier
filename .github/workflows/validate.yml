@@ -27,6 +27,26 @@ jobs:
         with:
           category: integration
 
+  release-zip:
+    name: Release zip
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build twice and compare
+        run: |
+          # The script refuses to write a zip with a broken layout; building twice
+          # proves the same commit always gives the same bytes.
+          VERSION=$(jq -r '.version' custom_components/philips_airpurifier/manifest.json)
+          SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
+          export SOURCE_DATE_EPOCH
+          python3 script/build_release_zip.py --output-dir dist/a --version "$VERSION"
+          python3 script/build_release_zip.py --output-dir dist/b --version "$VERSION"
+          cmp dist/a/philips_airpurifier.zip dist/b/philips_airpurifier.zip
+          (cd dist/a && sha256sum -c SHA256SUMS)
+
   validate:
     name: Hassfest
     runs-on: ubuntu-latest

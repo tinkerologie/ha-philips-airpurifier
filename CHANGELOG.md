@@ -7,6 +7,48 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 
 ## [Unreleased]
 
+## [2026.10.4] - 2026-10-29
+
+### Added
+
+- Releases ship `philips_airpurifier.zip` (#180), so HACS and the Home Assistant Marketplace
+  show a download count. The zip is reproducible, has a `SHA256SUMS` file and a signed build
+  provenance attestation, and is published through a draft as an immutable release. PR CI
+  builds it twice and checks the bytes match. The README explains manual zip installation
+  and verification.
+- Deprecation checks in CI (#181): tests fail on `DeprecationWarning`s raised from the
+  integration and on Home Assistant's deprecation log reports that name it, and
+  `script/import_smoke.py` imports every module in a clean interpreter.
+- Weekly `HA Next` workflow against the newest Home Assistant on PyPI (beta included) and
+  Core `dev`, keeping one `ha-next` issue per channel; a weekly `HA Dev Blog` watch opens one
+  `ha-dev-blog` issue per developer blog post that names code the integration uses.
+
+### Changed
+
+- Dashboard cards follow the Home Assistant 2026.10 design tokens (spacing, radius, typography,
+  semantic and state colours), with fallbacks for 2026.9, so they match user themes in light
+  and dark mode. Card accents follow the device state like the tile card (active, off,
+  unavailable), and the humidity card uses the humidifier state colour.
+- Card notices and errors are Home Assistant-style alerts; humidifier modes are a translated
+  segmented switch, and the target stepper uses 48px icon buttons.
+- Card accessibility: correct ARIA states for toggles and dialog openers, arrow-key navigation
+  in choice dialogs, visible focus rings, right-to-left support, and translated
+  Close/Cancel/Unknown labels. Masonry card sizes are more accurate, and the card editor
+  groups display options in a collapsible section.
+- `script/hassfest` supports Home Assistant 2026.11's `packages/hassfest` layout,
+  `HA_VERSION=<tag>` and `HA_VERSION=dev` (with `HA_CORE_REF=<commit>`).
+
+### Fixed
+
+- The heater (climate) entity uses the native temperature API on Home Assistant 2026.11 and
+  later, so Home Assistant no longer logs that `PhilipsHeater` provides the deprecated
+  `_attr_temperature_unit` and `target_temperature` (#179, #181). Earlier releases keep the
+  old members.
+- The heater's current temperature follows device updates; it previously kept the value
+  read at startup.
+- The Home Assistant 2026.9 minimum CI job runs again: Dependabot had raised the pinned
+  floor in `requirements_test_min.txt` to 2026.10.4, and no longer edits that file.
+
 ## [2026.10.3] - 2026-10-28
 
 ### Added

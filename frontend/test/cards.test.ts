@@ -85,7 +85,7 @@ describe("Philips dashboard cards", () => {
     const { element, hass, root, calls } = await card(purifier);
     expect(root.querySelector(".mode-button")?.textContent).contains("Auto+");
     expect(root.querySelector('[aria-label^="Fan speed"]')?.getAttribute("aria-label")).eq("Fan speed: Speed 2");
-    expect(root.querySelector('[aria-label^="Display light"]')?.getAttribute("aria-label")).eq("Display light: Off");
+    expect(root.querySelector('[aria-label^="Display light"]')?.getAttribute("aria-label")).eq("Display light: off");
     (root.querySelector('[aria-label="Toggle child lock"]') as HTMLButtonElement).click();
     await new Promise((r) => setTimeout(r));
     (root.querySelector('[aria-label^="Display light"]') as HTMLButtonElement).click();
@@ -575,5 +575,98 @@ describe("Philips dashboard cards", () => {
       window.setInterval = realSet;
       window.clearInterval = realClear;
     }
+  });
+  it("sets humidifier modes from a segmented switch with translated labels", async () => {
+    const { element, hass, root, calls } = await card(humidity, "AC2729");
+    element.hass = {
+      ...hass,
+      states: { ...hass.states, "humidifier.test": { ...hass.states["humidifier.test"]! } },
+      formatEntityAttributeValue: (_e, attribute, v) => (attribute === "mode" && v === "sleep" ? "Night" : String(v)),
+    };
+    await element.updateComplete;
+    const radios = [...root.querySelectorAll<HTMLInputElement>('.segmented input[type="radio"]')];
+    expect(radios.map((r) => r.parentElement?.textContent?.trim())).deep.eq(["Auto", "Night"]);
+    expect(radios[0]!.checked).eq(true);
+    expect(root.querySelector("legend")?.textContent).eq("Mode");
+    radios[1]!.click();
+    await new Promise((r) => setTimeout(r));
+    expect(calls[0]).deep.eq({
+      domain: "humidifier",
+      service: "set_mode",
+      data: { mode: "sleep", entity_id: "humidifier.test" },
+    });
+    // The switch follows the entity, not the optimistic click, until Home Assistant confirms.
+    element.hass = { ...hass, states: { ...hass.states } };
+    await element.updateComplete;
+    expect(radios[0]!.checked).eq(true);
+    expect(root.querySelector("ha-card")?.className).contains("is-on");
+    element.hass = {
+      ...hass,
+      states: { ...hass.states, "humidifier.test": { ...hass.states["humidifier.test"]!, state: "unavailable" } },
+    };
+    await element.updateComplete;
+    expect((root.querySelector(".segmented") as HTMLFieldSetElement).disabled).eq(true);
+    expect(root.querySelector("ha-card")?.className).contains("is-unavailable");
+    expect(root.querySelector(".hero .state")?.textContent?.trim()).eq("Check the device connection");
+  });
+  it("shows notices and errors as Home Assistant style alerts", async () => {
+    const { root } = await card(purifier, "HU1509");
+    expect(root.querySelector('.alert.info[role="status"]')?.textContent).contains("does not expose a purifier fan");
+    const missing = await card(purifier, "AC3858/51", { device_id: "missing" });
+    expect(missing.root.querySelector(".alert.warning")).not.eq(null);
+    const { element, hass, root: failing } = await card(purifier);
+    element.hass = {
+      ...hass,
+      callService: async () => {
+        throw new Error("Device offline");
+      },
+    };
+    await element.updateComplete;
+    (failing.querySelector('[aria-label="Turn purifier off"]') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r));
+    await element.updateComplete;
+    expect(failing.querySelector('.alert.error[role="alert"]')?.textContent).contains("Device offline");
+  });
+  it("moves the sheet selection with the arrow keys and localizes dialog actions", async () => {
+    const { element, hass, root } = await card(purifier);
+    element.hass = {
+      ...hass,
+      localize: (key: string) => ({ "ui.common.cancel": "Abbrechen", "ui.common.close": "Schließen" })[key] ?? "",
+    };
+    await element.updateComplete;
+    const opener = root.querySelector(".mode-button") as HTMLButtonElement;
+    expect(opener.getAttribute("aria-haspopup")).eq("dialog");
+    expect(opener.hasAttribute("aria-pressed")).eq(false);
+    opener.click();
+    await element.updateComplete;
+    expect(root.querySelector(".cancel")?.textContent?.trim()).eq("Abbrechen");
+    expect(root.querySelector(".sheet-close")?.getAttribute("aria-label")).eq("Schließen");
+    const group = root.querySelector('[role="radiogroup"]')!;
+    const checked = () => root.querySelector('[aria-checked="true"]')?.textContent?.trim();
+    expect([...root.querySelectorAll(".choice")].map((c) => c.getAttribute("tabindex"))).deep.eq(["0", "-1", "-1"]);
+    group.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    await element.updateComplete;
+    await element.updateComplete;
+    expect(checked()).eq("Sleep");
+    expect(root.activeElement?.textContent?.trim()).eq("Sleep");
+    group.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }));
+    group.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    await element.updateComplete;
+    group.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }));
+    await element.updateComplete;
+    expect(checked()).eq("Turbo");
+  });
+  it("sizes each card for masonry and sections views", () => {
+    const quality = new PhilipsAirPurifierAirQualityCard();
+    quality.setConfig({ type: `custom:${air}` });
+    expect(quality.getCardSize()).eq(9);
+    quality.setConfig({ type: `custom:${air}`, show_trend: false, show_climate: false });
+    expect(quality.getCardSize()).eq(4);
+    expect(new PhilipsAirPurifierHumidityCard().getCardSize()).eq(7);
+    expect(new PhilipsAirPurifierPurifierCard().getGridOptions()).deep.eq({
+      columns: 12,
+      min_columns: 6,
+      rows: "auto",
+    });
   });
 });

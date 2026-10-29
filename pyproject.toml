@@ -38,6 +38,13 @@ dev = [
 testpaths = ["tests"]
 asyncio_mode = "auto"
 norecursedirs = [".git", "config"]
+# Deprecation warnings attributed to the integration's own modules are errors.
+# The module field is a regex matched from the start of the warning's module, so
+# it covers every submodule; third-party deprecations keep the default action.
+filterwarnings = [
+    'error::DeprecationWarning:custom_components\.philips_airpurifier(\.|$)',
+    'error::PendingDeprecationWarning:custom_components\.philips_airpurifier(\.|$)',
+]
 markers = [
     "unit: Fast, isolated tests with no external dependencies",
     "integration: Tests exercising the coordinator, time service, etc.",

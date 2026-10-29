@@ -14,16 +14,29 @@ INTEGRATION_PATH="custom_components/philips_airpurifier"
 SKIP_PLUGINS="quality_scale,requirements"
 UPDATE_CORE=false
 
-if command -v python3 >/dev/null 2>&1; then
-    HA_VERSION_TAG="$(python3 -c "from homeassistant.const import __version__; print(__version__)" 2>/dev/null || true)"
-else
+if ! command -v python3 >/dev/null 2>&1; then
     echo "python3 is required to run hassfest" >&2
     exit 1
+fi
+
+# The Core revision defaults to the installed Home Assistant release. HA_VERSION
+# selects another release tag, or "dev" for the head of Core's dev branch;
+# HA_CORE_REF pins that dev checkout to one commit (the HA Next workflow passes
+# the commit it installed).
+HA_VERSION_TAG="${HA_VERSION:-}"
+if [[ -z "$HA_VERSION_TAG" ]]; then
+    HA_VERSION_TAG="$(python3 -c "from homeassistant.const import __version__; print(__version__)" 2>/dev/null || true)"
 fi
 
 if [[ -z "$HA_VERSION_TAG" ]]; then
     echo "Home Assistant is not installed in this environment. Run ./script/setup first." >&2
     exit 1
+fi
+
+if [[ "$HA_VERSION_TAG" == "dev" ]]; then
+    CORE_FETCH_REFSPEC="${HA_CORE_REF:-refs/heads/dev}"
+else
+    CORE_FETCH_REFSPEC="refs/tags/$HA_VERSION_TAG:refs/tags/$HA_VERSION_TAG"
 fi
 
 while [[ $# -gt 0 ]]; do
@@ -42,29 +55,55 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+fetch_core() {
+    git -C "$HA_CORE_DIR" fetch --depth 1 --filter=blob:none origin "$CORE_FETCH_REFSPEC"
+    if [[ "$HA_VERSION_TAG" == "dev" ]]; then
+        git -C "$HA_CORE_DIR" checkout --detach FETCH_HEAD >/dev/null 2>&1
+    else
+        git -C "$HA_CORE_DIR" checkout "$HA_VERSION_TAG" >/dev/null 2>&1
+    fi
+}
+
 if [[ ! -d "$HA_CORE_DIR/.git" ]]; then
     rm -rf "$HA_CORE_DIR"
     mkdir -p "$HA_CORE_DIR"
     git -C "$HA_CORE_DIR" init >/dev/null 2>&1
     git -C "$HA_CORE_DIR" remote add origin "$HA_CORE_REPO"
     git -C "$HA_CORE_DIR" config core.sparseCheckout true
-    mkdir -p "$HA_CORE_DIR/.git/info"
-    {
-        echo "script/"
-        echo "homeassistant/"
-    } >"$HA_CORE_DIR/.git/info/sparse-checkout"
-    git -C "$HA_CORE_DIR" fetch --depth 1 --filter=blob:none origin "refs/tags/$HA_VERSION_TAG:refs/tags/$HA_VERSION_TAG"
-    git -C "$HA_CORE_DIR" checkout "$HA_VERSION_TAG" >/dev/null 2>&1
+    NEED_FETCH=true
 else
     CURRENT_VERSION="$(git -C "$HA_CORE_DIR" describe --tags --exact-match 2>/dev/null || true)"
-    if [[ "$UPDATE_CORE" == true || "$CURRENT_VERSION" != "$HA_VERSION_TAG" ]]; then
-        git -C "$HA_CORE_DIR" fetch --depth 1 --filter=blob:none origin "refs/tags/$HA_VERSION_TAG:refs/tags/$HA_VERSION_TAG"
-        git -C "$HA_CORE_DIR" checkout "$HA_VERSION_TAG" >/dev/null 2>&1
+    NEED_FETCH=false
+    # A dev checkout is always refreshed: the branch head moves.
+    if [[ "$UPDATE_CORE" == true || "$HA_VERSION_TAG" == "dev" || "$CURRENT_VERSION" != "$HA_VERSION_TAG" ]]; then
+        NEED_FETCH=true
     fi
+fi
+
+# Home Assistant 2026.11 moved the validator core into packages/hassfest, which
+# script/hassfest imports. Rewritten on every run, so caches made before that
+# move pick the directory up too.
+mkdir -p "$HA_CORE_DIR/.git/info"
+{
+    echo "script/"
+    echo "homeassistant/"
+    echo "packages/hassfest/"
+} >"$HA_CORE_DIR/.git/info/sparse-checkout"
+
+if [[ "$NEED_FETCH" == true ]]; then
+    fetch_core
+else
+    git -C "$HA_CORE_DIR" read-tree -mu HEAD
 fi
 
 HA_CORE_ABS="$(cd "$HA_CORE_DIR" && pwd)"
 export PYTHONPATH="$HA_CORE_ABS:${PYTHONPATH:-}"
+# packages/hassfest is a flat package with no build step at runtime, so it is
+# imported from the checkout like script/hassfest itself.
+if [[ -f "$HA_CORE_ABS/packages/hassfest/pyproject.toml" ]]; then
+    export PYTHONPATH="$HA_CORE_ABS/packages/hassfest:$PYTHONPATH"
+fi
+echo "Validating with Home Assistant Core $(git -C "$HA_CORE_DIR" rev-parse HEAD) ($HA_VERSION_TAG)"
 
 python3 -m script.hassfest \
     --action validate \

@@ -1,5 +1,5 @@
 import { html, nothing, type TemplateResult } from "lit";
-import { PhilipsAirPurifierBaseCard } from "../base-card";
+import { PhilipsAirPurifierBaseCard, alert, prettify } from "../base-card";
 import { finite, strings, stubConfig } from "../discovery";
 import {
   closeIcon,
@@ -48,14 +48,16 @@ export class PhilipsAirPurifierPurifierCard extends PhilipsAirPurifierBaseCard {
     if (guard !== nothing || !fan)
       return html`<ha-card
         ><div class="body">
-          ${this.heading("Purifier")}${guard !== nothing ? guard : html`<div class="notice">This device does not expose a purifier fan.</div>`}
+          <header>${this.heading("Purifier")}</header>
+          ${guard !== nothing ? guard : alert("This device does not expose a purifier fan.")}
         </div></ha-card
       >`;
     const state = fan.state;
     const on = state?.state === "on";
     const pm25 = this.caps("pm25")[0];
     const level = this.config.show_pm25 !== false && pm25 ? band(pm25) : undefined;
-    return html`<ha-card
+    const available = fan.availability === "available";
+    return html`<ha-card class=${this.stateClass(fan)}
       ><div class="body">
         <header>${this.heading("Purifier")}</header>
         <div class="hero ${level ? `band-${level}` : ""}">
@@ -66,13 +68,15 @@ export class PhilipsAirPurifierPurifierCard extends PhilipsAirPurifierBaseCard {
                 ? html`<div class="secondary">PM2.5</div>
                     <div class="value">${this.reading(pm25)}</div>
                     ${level ? html`<span class="pill">${bandLabel[level]}</span>` : nothing}`
-                : html`<div class="value">
-                    ${fan.availability === "available" ? (on ? "On" : "Off") : this.value(fan)}
+                : html`<div class="value">${this.value(fan)}</div>`
+            }
+            ${
+              available
+                ? html`<div class="state">${on ? this.modeLabel(fan) : "Standby"}</div>`
+                : html`<div class="state">
+                    ${pm25 && this.config.show_pm25 !== false ? this.value(fan) : "Check the device connection"}
                   </div>`
             }
-            <div class="state">
-              ${fan.availability !== "available" ? this.value(fan) : on ? this.modeLabel(fan) : "Standby"}
-            </div>
           </div>
         </div>
         ${this.controls(fan)} ${this.health()} ${this.feedback()}
@@ -103,15 +107,14 @@ export class PhilipsAirPurifierPurifierCard extends PhilipsAirPurifierBaseCard {
       <div class="round-row">
         <div class="round">
           <button
-            class="icon-button"
             aria-label=${on ? "Turn purifier off" : "Turn purifier on"}
-            aria-pressed=${on}
+            class="icon-button ${on ? "active" : ""}"
             ?disabled=${disabled}
             @click=${() => this.action(fan, on ? "turn_off" : "turn_on")}
           >
             ${powerIcon()}
           </button>
-          <span>Power</span>
+          <span aria-hidden="true">Power</span>
         </div>
         ${
           lock
@@ -125,7 +128,7 @@ export class PhilipsAirPurifierPurifierCard extends PhilipsAirPurifierBaseCard {
                 >
                   ${lockIcon(lockOn)}
                 </button>
-                <span>Child lock</span>
+                <span aria-hidden="true">Child lock</span>
               </div>`
             : nothing
         }
@@ -133,9 +136,8 @@ export class PhilipsAirPurifierPurifierCard extends PhilipsAirPurifierBaseCard {
       ${
         this.config.show_presets !== false && presets.length
           ? html`<button
-              class="mode-button"
+              class="mode-button ${on && presets.includes(mode) ? "active" : ""}"
               aria-haspopup="dialog"
-              aria-pressed=${on && presets.includes(mode)}
               aria-label=${`Mode: ${on ? this.modeLabel(fan) : "Off"}. Choose a mode`}
               ?disabled=${disabled}
               @click=${(event: Event) =>
@@ -160,12 +162,13 @@ export class PhilipsAirPurifierPurifierCard extends PhilipsAirPurifierBaseCard {
     icon: TemplateResult,
     value: string,
     onClick: (event: Event) => void,
-    pressed: boolean
+    active: boolean,
+    opensSheet = true
   ) {
     return html`<button
-      class="control-tile"
+      class="control-tile ${active ? "active" : ""}"
       aria-label=${`${name}: ${value}`}
-      aria-pressed=${pressed}
+      aria-haspopup=${opensSheet ? "dialog" : nothing}
       ?disabled=${this.busy || c.availability !== "available"}
       @click=${onClick}
     >
@@ -180,9 +183,10 @@ export class PhilipsAirPurifierPurifierCard extends PhilipsAirPurifierBaseCard {
       light,
       "Display light",
       displayIcon(),
-      light.availability === "available" ? (lit ? "On" : "Off") : this.value(light),
+      this.value(light),
       () => this.action(light, lit ? "turn_off" : "turn_on"),
-      lit
+      lit,
+      false
     );
   }
   private speedTile(fan: Capability) {
@@ -261,8 +265,7 @@ export class PhilipsAirPurifierPurifierCard extends PhilipsAirPurifierBaseCard {
           ${percent !== undefined ? ring(percent) : nothing}<span class="filter-text"
             ><span class="filter-name">${this.label(f)}</span><span class="filter-value">${this.value(f)}</span
             ><span class="secondary">
-              ·
-              ${f.availability === "available" ? String(f.state?.attributes["Replacement Status"] ?? "Filter life remaining") : "Check device connection"}</span
+              ${f.availability === "available" ? String(f.state?.attributes["Replacement Status"] ?? "Filter life remaining") : "Check the device connection"}</span
             ></span
           >
         </button>`;
@@ -288,19 +291,27 @@ export class PhilipsAirPurifierPurifierCard extends PhilipsAirPurifierBaseCard {
       @close=${() => (this.sheet = undefined)}
       @cancel=${() => this.close()}
     >
-      <button class="icon-button sheet-close" aria-label="Close" @click=${() => this.close()}>${closeIcon()}</button>
+      <button
+        class="icon-button sheet-close"
+        aria-label=${this.t("ui.common.close", "Close")}
+        @click=${() => this.close()}
+      >
+        ${closeIcon()}
+      </button>
       <h3 id="sheet-title">${sheet.title}</h3>
       <div
         class="choices ${sheet.choices.length > 6 && sheet.choices.every((c) => !c.icon) ? "compact" : ""}"
         role="radiogroup"
         aria-labelledby="sheet-title"
+        @keydown=${(event: KeyboardEvent) => this.moveChoice(event, sheet)}
       >
         ${sheet.choices.map(
-          (c) =>
+          (c, i) =>
             html`<button
               class="choice"
               role="radio"
               aria-checked=${c.value === sheet.selected}
+              tabindex=${c.value === sheet.selected || (i === 0 && !sheet.choices.some((o) => o.value === sheet.selected)) ? 0 : -1}
               ?autofocus=${c.value === sheet.selected}
               @click=${() => (this.sheet = { ...sheet, selected: c.value })}
             >
@@ -324,9 +335,22 @@ export class PhilipsAirPurifierPurifierCard extends PhilipsAirPurifierBaseCard {
         >
           Apply
         </button>
-        <button class="cancel" @click=${() => this.close()}>Cancel</button>
+        <button class="cancel" @click=${() => this.close()}>${this.t("ui.common.cancel", "Cancel")}</button>
       </div>
     </dialog>`;
+  }
+  // Radio groups move the selection with the arrow keys (WAI-ARIA radio group pattern).
+  private moveChoice(event: KeyboardEvent, sheet: Sheet) {
+    const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[event.key];
+    if (!step || !sheet.choices.length) return;
+    event.preventDefault();
+    // Left and right follow the reading direction.
+    const rtl = /Left|Right/.test(event.key) && getComputedStyle(this).direction === "rtl";
+    const index = sheet.choices.findIndex((c) => c.value === sheet.selected);
+    const count = sheet.choices.length;
+    const next = (index + (rtl ? -step : step) + count) % count;
+    this.sheet = { ...sheet, selected: sheet.choices[next]!.value };
+    void this.updateComplete.then(() => this.renderRoot.querySelectorAll<HTMLButtonElement>(".choice")[next]?.focus());
   }
   private presetLabel(fan: Capability, preset: string): string {
     if (preset === "auto" && this.caps("auto_plus")[0]?.state?.state === "on") return "Auto+";
@@ -341,8 +365,4 @@ export class PhilipsAirPurifierPurifierCard extends PhilipsAirPurifierBaseCard {
     const translated = select.state && this.hass?.formatEntityState(select.state, option);
     return translated && translated !== option ? translated : prettify(option);
   }
-}
-function prettify(value: string): string {
-  const text = value.replaceAll("_", " ");
-  return text.charAt(0).toUpperCase() + text.slice(1);
 }

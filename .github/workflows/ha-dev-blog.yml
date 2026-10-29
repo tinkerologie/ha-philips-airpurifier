@@ -1,0 +1,76 @@
+name: HA Dev Blog
+
+# Home Assistant announces deprecations and removals on its developer blog,
+# usually weeks before the beta that ships them. Once a week, match the new
+# posts against the integration and open one issue per post that changes code
+# the integration uses. Other posts are listed in the job summary only.
+
+on:
+  schedule:
+    - cron: "30 3 * * 1"
+      timezone: Australia/Brisbane
+  workflow_dispatch:
+    inputs:
+      days:
+        description: Look-back window in days
+        required: false
+        default: "22"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ha-dev-blog
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check new posts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # read the integration source
+      issues: write # open one issue per actionable post
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Three weeks, so a run catches up after two missed weekly runs.
+      - name: Match recent posts against the integration
+        env:
+          DAYS: ${{ inputs.days || '22' }}
+        run: |
+          python3 script/ha_dev_blog.py --days "$DAYS" --json report.json \
+            --summary "$GITHUB_STEP_SUMMARY"
+
+      # Runs when some post pages failed too: the report covers the others,
+      # and the failed scan step still fails the job.
+      - name: Open an issue per actionable post
+        if: ${{ !cancelled() && hashFiles('report.json') != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh label create ha-dev-blog --repo "$REPO" --color FBCA04 \
+            --description "Home Assistant developer blog change that affects the integration" \
+            2>/dev/null || true
+          gh label create enhancement --repo "$REPO" --color A2EEEF \
+            --description "New feature or improvement request" 2>/dev/null || true
+          jq -c '.[] | select(.actionable)' report.json | while read -r post; do
+            link=$(jq -r .link <<<"$post")
+            title=$(jq -r .title <<<"$post")
+            # One issue per post, open or closed, so reruns never duplicate.
+            # Matched on the body, not through search, which can lag behind new issues.
+            existing=$(gh issue list --repo "$REPO" --label ha-dev-blog --state all \
+              --limit 1000 --json body \
+              | jq --arg link "($link)" '[.[] | select(.body | contains($link))] | length')
+            if [ "$existing" = "0" ]; then
+              jq -r .issue <<<"$post" > issue.md
+              # enhancement makes CodeRabbit write a coding plan; an issue opened
+              # with GITHUB_TOKEN never triggers the issue labeler workflow.
+              gh issue create --repo "$REPO" --label ha-dev-blog --label enhancement \
+                --title "HA dev blog: $title" --body-file issue.md
+            else
+              echo "Issue already exists for $link"
+            fi
+          done
