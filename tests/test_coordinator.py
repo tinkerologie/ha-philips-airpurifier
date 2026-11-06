@@ -1602,3 +1602,63 @@ async def test_connection_diagnostics_reports_reconnect_in_progress(hass: HomeAs
     assert snapshot["observer_running"] is False
     assert snapshot["seconds_since_last_update"] is None
     assert snapshot["watchdog_interval"] == coordinator._timeout * coordinator.missed_package_count
+
+
+async def test_do_reconnect_retries_never_shut_the_same_client_down_twice(
+    hass: HomeAssistant,
+) -> None:
+    """Failed reconnect retries must shut each client down at most once (issue #198).
+
+    A second shutdown of the same aiocoap client raises inside a task nothing
+    awaits, which Home Assistant logs as "Task exception was never retrieved"
+    on every failed retry.
+    """
+    old_client = AsyncMock()
+    old_client.shutdown = AsyncMock()
+    coordinator = _make_coordinator(hass, client=old_client)
+
+    created_clients: list[AsyncMock] = []
+
+    async def _create_client(host: str, create_client: object = None) -> AsyncMock:
+        client = AsyncMock()
+        client.get_status.side_effect = RuntimeError("status failed")
+        created_clients.append(client)
+        return client
+
+    with (
+        patch(
+            "custom_components.philips_airpurifier.coordinator.CoAPClient.create",
+            new=_create_client,
+        ),
+        patch.object(coordinator, "_schedule_reconnect_retry"),
+    ):
+        await coordinator._do_reconnect()
+        await coordinator._do_reconnect()
+
+    for client in created_clients:
+        assert client.shutdown.await_count == 1
+
+
+async def test_async_shutdown_after_failed_reconnect_does_not_shut_client_down_again(
+    hass: HomeAssistant,
+) -> None:
+    """Unload after a failed reconnect finishes the single shutdown (issue #198)."""
+    old_client = AsyncMock()
+    old_client.shutdown = AsyncMock()
+    coordinator = _make_coordinator(hass, client=old_client)
+
+    replacement = AsyncMock()
+    replacement.get_status.side_effect = RuntimeError("status failed")
+
+    with (
+        patch(
+            "custom_components.philips_airpurifier.coordinator.CoAPClient.create",
+            new=AsyncMock(return_value=replacement),
+        ),
+        patch.object(coordinator, "_schedule_reconnect_retry"),
+    ):
+        await coordinator._do_reconnect()
+
+    await coordinator.async_shutdown()
+
+    assert replacement.shutdown.await_count == 1
