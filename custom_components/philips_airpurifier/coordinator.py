@@ -115,6 +115,10 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._shutting_down: bool = False
         self._shutdown_complete = False
         self._shutdown_lock = asyncio.Lock()
+        # The client most recently shut down, so it is never shut down twice.
+        # aiocoap fails a second shutdown inside a task nothing awaits, which
+        # Home Assistant logs as "Task exception was never retrieved".
+        self._closed_client: CoAPClient | None = None
         self._reconnect_dispatch_task: asyncio.Task[None] | None = None
         # Each observation session gets a generation. A cancelled or replaced
         # observer compares its generation before requesting a reconnect, so a
@@ -297,14 +301,26 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         nudge = self._build_status_nudge()
         return await async_fetch_status_with_nudge(self.host, nudge, create_client=CoAPClient.create)
 
+    async def _async_close_client(self) -> None:
+        """Shut the current client down, unless it already has been.
+
+        A shutdown that is cancelled part way doesn't count, so a later caller
+        such as unload still releases the client.
+        """
+        client = self.client
+        if client is self._closed_client:
+            return
+        with contextlib.suppress(Exception):
+            await asyncio.wait_for(client.shutdown(), timeout=SHUTDOWN_TIMEOUT)
+        self._closed_client = client
+
     async def _async_refresh_via_nudge(self) -> None:
         """Fetch via nudge and publish the resulting status to listeners."""
         # The nudge helper opens its own short-lived client. Single-client
         # firmware evicts any other connection, so close the coordinator client
         # first and recreate it afterwards — otherwise the observe stream started
         # after this would attach to the connection the nudge just evicted.
-        with contextlib.suppress(Exception):
-            await asyncio.wait_for(self.client.shutdown(), timeout=SHUTDOWN_TIMEOUT)
+        await self._async_close_client()
         status = await self._async_nudge_fetch()
         replacement = await async_create_client(self.host, create_client=CoAPClient.create)
         if self._shutting_down:
@@ -540,8 +556,7 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # Retire the old observer first so its stream ending cannot raise
             # into this reconnect and request another one.
             await self._async_stop_observer()
-            with contextlib.suppress(Exception):
-                await asyncio.wait_for(self.client.shutdown(), timeout=SHUTDOWN_TIMEOUT)
+            await self._async_close_client()
 
             if self._status_nudge_enabled:
                 # Re-fetch via nudge before re-establishing the observe stream.
@@ -587,8 +602,7 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if stage == "status":
                 # Release the client whose status read failed instead of
                 # keeping it open through the backoff delay.
-                with contextlib.suppress(Exception):
-                    await asyncio.wait_for(self.client.shutdown(), timeout=SHUTDOWN_TIMEOUT)
+                await self._async_close_client()
             retry_delay = self._reconnect_delay
             self._reconnect_delay = min(self._reconnect_delay * 2, RECONNECT_MAX_DELAY)
             self._consecutive_reconnect_failures += 1
@@ -704,8 +718,7 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         _LOGGER.debug("%d device task(s) did not stop before shutdown timeout", len(pending))
             finally:
                 try:
-                    with contextlib.suppress(Exception):
-                        await asyncio.wait_for(self.client.shutdown(), timeout=SHUTDOWN_TIMEOUT)
+                    await self._async_close_client()
                 finally:
                     self._observe_task = None
                     self._watchdog_task = None
