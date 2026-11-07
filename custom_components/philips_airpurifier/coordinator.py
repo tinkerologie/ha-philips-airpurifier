@@ -304,18 +304,23 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_close_client(self) -> None:
         """Shut the current client down, unless it already has been.
 
-        A shutdown that is cancelled part way doesn't count, so a later caller
-        such as unload still releases the client.
+        A shutdown that times out doesn't count, so a later caller such as
+        unload still releases the client. Cancellation propagates: a reconnect
+        cancelled mid-shutdown must stop instead of running on after unload.
         """
         client = self.client
         if client is self._closed_client:
             return
         try:
             await asyncio.wait_for(client.shutdown(), timeout=SHUTDOWN_TIMEOUT)
-        except (asyncio.TimeoutError, asyncio.CancelledError):
-            # A cancelled shutdown doesn't count (see docstring): leave the
-            # client unrecorded so a later caller such as unload retries.
+        except TimeoutError:
+            # A timed-out shutdown doesn't count: leave the client unrecorded
+            # so a later caller such as unload retries.
             return
+        except asyncio.CancelledError:
+            # Re-raise so the cancelled reconnect (or unload) actually stops.
+            # The client stays unrecorded, so unload still releases it.
+            raise
         except Exception:
             pass
         self._closed_client = client
