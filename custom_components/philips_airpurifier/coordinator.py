@@ -310,8 +310,14 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         client = self.client
         if client is self._closed_client:
             return
-        with contextlib.suppress(Exception):
+        try:
             await asyncio.wait_for(client.shutdown(), timeout=SHUTDOWN_TIMEOUT)
+        except (asyncio.TimeoutError, asyncio.CancelledError):
+            # A cancelled shutdown doesn't count (see docstring): leave the
+            # client unrecorded so a later caller such as unload retries.
+            return
+        except Exception:
+            pass
         self._closed_client = client
 
     async def _async_refresh_via_nudge(self) -> None:
