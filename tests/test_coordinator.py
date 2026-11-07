@@ -1662,3 +1662,29 @@ async def test_async_shutdown_after_failed_reconnect_does_not_shut_client_down_a
     await coordinator.async_shutdown()
 
     assert replacement.shutdown.await_count == 1
+
+
+async def test_cancelled_shutdown_propagates_and_leaves_client_unrecorded(
+    hass: HomeAssistant,
+) -> None:
+    """Cancelling a shutdown stops the reconnect instead of letting it run on.
+
+    async_shutdown cancels the reconnect task, then releases the client itself.
+    If the cancellation lands inside the client shutdown await, the reconnect
+    must end cancelled — not swallow the error and continue into a nudge or a
+    replacement connection after unload (review follow-up to issue #198).
+    """
+    coordinator = _make_coordinator(hass)
+    started = asyncio.Event()
+
+    async def slow_shutdown():
+        started.set()
+        await asyncio.sleep(60)
+
+    coordinator.client.shutdown = slow_shutdown
+    task = hass.async_create_task(coordinator._async_close_client())
+    await started.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert coordinator._closed_client is not coordinator.client
