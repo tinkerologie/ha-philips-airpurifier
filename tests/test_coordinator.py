@@ -1806,3 +1806,35 @@ async def test_cancelled_shutdown_propagates_and_leaves_client_unrecorded(
     with pytest.raises(asyncio.CancelledError):
         await task
     assert coordinator._closed_client is not coordinator.client
+
+
+async def test_overlapping_close_paths_shut_the_client_down_once(
+    hass: HomeAssistant,
+) -> None:
+    """Unload and a reconnect closing at the same time must not double-shutdown.
+
+    Both paths check _closed_client before awaiting the shutdown; without
+    serialising them they can both pass the check and hand the same aiocoap
+    client to shutdown twice (review follow-up to issue #198).
+    """
+    coordinator = _make_coordinator(hass)
+    started = asyncio.Event()
+    release = asyncio.Event()
+    calls: list[int] = []
+
+    async def slow_shutdown() -> None:
+        calls.append(len(calls) + 1)
+        started.set()
+        await release.wait()
+
+    coordinator.client.shutdown = slow_shutdown
+    first = hass.async_create_task(coordinator._async_close_client())
+    await started.wait()
+    second = hass.async_create_task(coordinator._async_close_client())
+    for _ in range(5):
+        await asyncio.sleep(0)
+    release.set()
+    await asyncio.gather(first, second)
+
+    assert calls == [1]
+    assert coordinator._closed_client is coordinator.client

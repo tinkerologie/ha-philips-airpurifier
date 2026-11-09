@@ -119,6 +119,9 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # aiocoap fails a second shutdown inside a task nothing awaits, which
         # Home Assistant logs as "Task exception was never retrieved".
         self._closed_client: CoAPClient | None = None
+        # Serialises the check-then-shutdown in _async_close_client so
+        # overlapping close paths cannot shut one client down twice.
+        self._close_lock = asyncio.Lock()
         self._reconnect_dispatch_task: asyncio.Task[None] | None = None
         # Each observation session gets a generation. A cancelled or replaced
         # observer compares its generation before requesting a reconnect, so a
@@ -304,26 +307,33 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_close_client(self) -> None:
         """Shut the current client down, unless it already has been.
 
+        The check and the shutdown are serialised: unload and a reconnect can
+        reach this method at the same time, and without the lock both would
+        read an unrecorded client and shut it down twice, which aiocoap fails
+        inside a task nothing awaits.
+
         A shutdown that times out doesn't count, so a later caller such as
         unload still releases the client. Cancellation propagates: a reconnect
         cancelled mid-shutdown must stop instead of running on after unload.
         """
-        client = self.client
-        if client is self._closed_client:
-            return
-        try:
-            await asyncio.wait_for(client.shutdown(), timeout=SHUTDOWN_TIMEOUT)
-        except TimeoutError:
-            # A timed-out shutdown doesn't count: leave the client unrecorded
-            # so a later caller such as unload retries.
-            return
-        except asyncio.CancelledError:
-            # Re-raise so the cancelled reconnect (or unload) actually stops.
-            # The client stays unrecorded, so unload still releases it.
-            raise
-        except Exception:
-            pass
-        self._closed_client = client
+        async with self._close_lock:
+            client = self.client
+            if client is self._closed_client:
+                return
+            try:
+                await asyncio.wait_for(client.shutdown(), timeout=SHUTDOWN_TIMEOUT)
+            except TimeoutError:
+                # A timed-out shutdown doesn't count: leave the client
+                # unrecorded so a later caller such as unload retries.
+                return
+            except asyncio.CancelledError:
+                # Re-raise so the cancelled reconnect (or unload) actually
+                # stops. The client stays unrecorded, so unload still releases
+                # it.
+                raise
+            except Exception:
+                pass
+            self._closed_client = client
 
     async def _async_refresh_via_nudge(self) -> None:
         """Fetch via nudge and publish the resulting status to listeners."""
