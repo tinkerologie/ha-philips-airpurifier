@@ -1838,3 +1838,58 @@ async def test_overlapping_close_paths_shut_the_client_down_once(
 
     assert calls == [1]
     assert coordinator._closed_client is coordinator.client
+
+
+async def test_shutdown_timeout_retry_resumes_the_same_shutdown(
+    hass: HomeAssistant,
+) -> None:
+    """A timed-out shutdown is resumed by the retry, not started again.
+
+    Cancelling the shutdown and calling client.shutdown() again makes both
+    aiocoap message-manager tasks raise on the retry, and Context.shutdown
+    stops at the first one, so the other logs
+    "Task exception was never retrieved" (review follow-up to issue #198).
+    """
+    coordinator = _make_coordinator(hass)
+    release = asyncio.Event()
+    calls: list[int] = []
+
+    async def slow_shutdown() -> None:
+        calls.append(len(calls) + 1)
+        await release.wait()
+
+    coordinator.client.shutdown = slow_shutdown
+
+    with patch(f"{_COORD}.SHUTDOWN_TIMEOUT", 0.01):
+        await coordinator._async_close_client()
+        assert calls == [1]
+        assert coordinator._closed_client is not coordinator.client
+
+        release.set()
+        await coordinator._shutdown_task
+
+        await coordinator._async_close_client()
+
+    assert calls == [1]
+    assert coordinator._closed_client is coordinator.client
+
+
+async def test_shutdown_exception_is_retrieved_and_client_recorded(
+    hass: HomeAssistant,
+) -> None:
+    """A failed shutdown counts as closed, and its exception is retrieved.
+
+    A retry would call client.shutdown() again on a context that already
+    failed, so the client is recorded and the exception read off the task
+    instead of being logged as "Task exception was never retrieved".
+    """
+    coordinator = _make_coordinator(hass)
+    coordinator.client.shutdown = AsyncMock(side_effect=RuntimeError("shutdown failed"))
+
+    await coordinator._async_close_client()
+    await coordinator._async_close_client()
+
+    coordinator.client.shutdown.assert_awaited_once()
+    assert coordinator._closed_client is coordinator.client
+    assert coordinator._shutdown_task is not None
+    assert isinstance(coordinator._shutdown_task.exception(), RuntimeError)

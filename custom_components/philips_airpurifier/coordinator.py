@@ -122,6 +122,13 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Serialises the check-then-shutdown in _async_close_client so
         # overlapping close paths cannot shut one client down twice.
         self._close_lock = asyncio.Lock()
+        # The in-flight shutdown of the current client. A timed-out shutdown
+        # keeps running instead of being cancelled, so a retry resumes it
+        # rather than calling client.shutdown() a second time — a second call
+        # makes aiocoap's message-manager tasks raise, one of them into a task
+        # nothing awaits.
+        self._shutdown_task: asyncio.Task[None] | None = None
+        self._shutdown_client: CoAPClient | None = None
         self._reconnect_dispatch_task: asyncio.Task[None] | None = None
         # Each observation session gets a generation. A cancelled or replaced
         # observer compares its generation before requesting a reconnect, so a
@@ -313,26 +320,39 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         inside a task nothing awaits.
 
         A shutdown that times out doesn't count, so a later caller such as
-        unload still releases the client. Cancellation propagates: a reconnect
-        cancelled mid-shutdown must stop instead of running on after unload.
+        unload still releases the client. The timed-out call keeps running
+        rather than being cancelled, so that later caller resumes it instead of
+        starting a second shutdown — a second call makes both aiocoap
+        message-manager tasks raise, and Context.shutdown stops at the first
+        one, leaving the other logged as "Task exception was never retrieved".
+        Cancellation propagates: a reconnect cancelled mid-shutdown must stop
+        instead of running on after unload.
         """
         async with self._close_lock:
             client = self.client
             if client is self._closed_client:
                 return
-            try:
-                await asyncio.wait_for(client.shutdown(), timeout=SHUTDOWN_TIMEOUT)
-            except TimeoutError:
-                # A timed-out shutdown doesn't count: leave the client
-                # unrecorded so a later caller such as unload retries.
+            task = self._shutdown_task
+            if task is None or self._shutdown_client is not client:
+                task = self.hass.async_create_task(client.shutdown())
+                self._shutdown_task = task
+                self._shutdown_client = client
+            # asyncio.wait never cancels the shutdown on timeout and never
+            # raises its exception, while a cancellation of this caller still
+            # propagates.
+            await asyncio.wait({task}, timeout=SHUTDOWN_TIMEOUT)
+            if not task.done():
                 return
-            except asyncio.CancelledError:
-                # Re-raise so the cancelled reconnect (or unload) actually
-                # stops. The client stays unrecorded, so unload still releases
-                # it.
-                raise
-            except Exception:
-                pass
+            if task.cancelled():
+                # A cancelled shutdown doesn't close the client, so forget it
+                # and let a later caller start a fresh one.
+                self._shutdown_task = None
+                self._shutdown_client = None
+                return
+            # Retrieve the result, including an exception the message managers
+            # raised, so it cannot surface as "Task exception was never
+            # retrieved".
+            task.exception()
             self._closed_client = client
 
     async def _async_refresh_via_nudge(self) -> None:

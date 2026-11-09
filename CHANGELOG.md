@@ -15,6 +15,7 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
   observation only at the nudge watchdog interval (30 min).
 - CX5120 swing now writes 17222, which the device accepts (it then reports 17920), instead of
   17242 from `OSCILLATION_MAP2`, which it ignores.
+- Repeated reconnect failures no longer spam the Home Assistant log with aiocoap's `Task exception was never retrieved`: the coordinator shuts each client down once, and a shutdown cut off by the timeout or a cancellation no longer counts as done, so unload still releases it (#198).
 
 ## [2026.11.0] - 2026-11-10
 
@@ -74,7 +75,6 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 
 ### Fixed
 
-- Repeated reconnect failures no longer spam the Home Assistant log with aiocoap's `Task exception was never retrieved`: the coordinator shuts each client down once, and a shutdown cut off by the timeout or a cancellation no longer counts as done, so unload still releases it (#198).
 - The heater (climate) entity uses the native temperature API on Home Assistant 2026.11 and
   later, so Home Assistant no longer logs that `PhilipsHeater` provides the deprecated
   `_attr_temperature_unit` and `target_temperature` (#179, #181). Earlier releases keep the
