@@ -1530,6 +1530,15 @@ DEVICE_MODELS: dict[str, DeviceModelConfig] = {
         selects=[PhilipsApi.NEW2_TIMER2],
         numbers=[PhilipsApi.NEW2_TARGET_TEMP],
         heaters=[PhilipsApi.NEW2_TARGET_TEMP],
+        # CX5120/11 firmware 0.4.9 (AWS_Philips_AIR@86.1) never answers a
+        # status read; it only pushes status to observers on a real state
+        # change (same as CX7550). Changing the display backlight (D03105,
+        # 0 = off, 100 = on) forces a full status push. The two values are a
+        # (transient, resting) pair, see coordinator._build_status_nudge.
+        status_nudge=[
+            (PhilipsApi.NEW2_DISPLAY_BACKLIGHT2, 0),
+            (PhilipsApi.NEW2_DISPLAY_BACKLIGHT2, 100),
+        ],
     ),
     # =========================================================================
     # CX3550

@@ -864,6 +864,23 @@ def test_build_status_nudge_hu1509_family(hass: HomeAssistant, model: str) -> No
 
 
 @pytest.mark.unit
+def test_build_status_nudge_cx5120(hass: HomeAssistant) -> None:
+    """CX5120 is push-only: the nudge toggles the display backlight (D03105, 0/100)."""
+    coordinator = _make_coordinator(hass, model="CX5120")
+
+    assert coordinator._build_status_nudge() == [("D03105", 0), ("D03105", 100)]
+
+
+@pytest.mark.unit
+def test_build_status_nudge_cx5120_restores_display_off(hass: HomeAssistant) -> None:
+    """When the CX5120 display was left off, the nudge ends on off (0)."""
+    coordinator = _make_coordinator(hass, model="CX5120")
+    coordinator.async_set_updated_data({"D03105": 0})
+
+    assert coordinator._build_status_nudge() == [("D03105", 100), ("D03105", 0)]
+
+
+@pytest.mark.unit
 def test_build_status_nudge_hu1509_restores_last_known_value(hass: HomeAssistant) -> None:
     """The suffix must be stripped before the last-known-value lookup, or it never matches."""
     coordinator = _make_coordinator(hass, model="HU1509")
