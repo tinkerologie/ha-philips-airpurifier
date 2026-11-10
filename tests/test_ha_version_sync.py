@@ -26,6 +26,8 @@ OFFICIAL = "pytest-homeassistant"
         ("lock", "Locked homeassistant must match development HA"),
         ("old_target", "is below supported minimum"),
         ("plugin_lock", "Locked pytest-homeassistant must match development HA"),
+        ("plugin_pin", "The development pytest plugin pin must match HA"),
+        ("legacy_lock", "The legacy pytest plugin must be absent from the development lock"),
         ("legacy_dev", "Development dependencies must use only the official pytest plugin"),
         ("official_min", "Minimum test requirements must use only the legacy pytest plugin"),
         ("missing_legacy", "Expected one exact pin for pytest-homeassistant-custom-component"),
@@ -47,7 +49,8 @@ def test_ha_version_sync(tmp_path: Path, case: str, message: str) -> None:
     (tmp_path / "requirements_test_min.txt").write_text("\n".join(minimum))
 
     target = "2026.8.0" if case == "old_target" else TARGET
-    dev = [f"homeassistant=={target}", f"{OFFICIAL}=={target}"]
+    plugin_target = FLOOR if case == "plugin_pin" else target
+    dev = [f"homeassistant=={target}", f"{OFFICIAL}=={plugin_target}"]
     if case == "legacy_dev":
         dev.append(LEGACY)
     (tmp_path / "pyproject.toml").write_text(f"[project.optional-dependencies]\ndev = {json.dumps(dev)}\n")
@@ -55,6 +58,8 @@ def test_ha_version_sync(tmp_path: Path, case: str, message: str) -> None:
         "homeassistant": FLOOR if case == "lock" else TARGET,
         OFFICIAL: FLOOR if case == "plugin_lock" else TARGET,
     }
+    if case == "legacy_lock":
+        packages[LEGACY] = "0.13.363"
     (tmp_path / "uv.lock").write_text(
         "\n".join(f'[[package]]\nname = "{name}"\nversion = "{version}"\n' for name, version in packages.items())
     )

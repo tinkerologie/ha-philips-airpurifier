@@ -134,7 +134,8 @@ jobs:
           ref="${CORE_REVISION:-$HA_VERSION}"
           plugin=""
           if [[ -z "$CORE_REVISION" ]]; then
-            status=$(curl -sSL --retry 3 -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/$package/$HA_VERSION/json")
+            status=$(curl -sSL --retry 3 --connect-timeout 10 --max-time 30 --retry-max-time 60 \
+              -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/$package/$HA_VERSION/json")
             case "$status" in
               200) plugin="$package==$HA_VERSION" ;;
               404) ;;
@@ -143,7 +144,8 @@ jobs:
           fi
           if [[ -z "$plugin" ]]; then
             directory="packages/$package"
-            status=$(curl -sSL --retry 3 -o /dev/null -w '%{http_code}' "https://raw.githubusercontent.com/home-assistant/core/$ref/$directory/pyproject.toml")
+            status=$(curl -sSL --retry 3 --connect-timeout 10 --max-time 30 --retry-max-time 60 \
+              -o /dev/null -w '%{http_code}' "https://raw.githubusercontent.com/home-assistant/core/$ref/$directory/pyproject.toml")
             case "$status" in
               200) plugin="$package @ https://github.com/home-assistant/core/archive/$ref.tar.gz#subdirectory=$directory" ;;
               404) echo "state=unavailable" >> "$GITHUB_OUTPUT"; exit 0 ;;
