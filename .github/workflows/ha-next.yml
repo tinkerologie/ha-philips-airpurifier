@@ -165,7 +165,7 @@ jobs:
         id: tests
         if: steps.harness.outputs.state == 'installed'
         continue-on-error: true
-        run: pytest --no-cov -q
+        run: pytest -q
 
       - name: Validate with Hassfest from the same release
         id: hassfest
