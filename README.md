@@ -1,269 +1,171 @@
-# Philips Air Purifier Home Assistant Integration
+# Philips AirPurifier for Home Assistant
+
+Control compatible Philips air purifiers, humidifiers, fans, and heaters from Home Assistant. The integration uses local CoAP to receive device updates and send commands. After the device joins your network, day-to-day control runs locally.
 
 <!-- BADGES:START -->
 
-[![Marketplace and HACS](https://img.shields.io/badge/Marketplace%20%7C%20HACS-Default-orange.svg)](https://www.hacs.xyz/docs/marketplace/)
-[![GitHub Last Commit](https://img.shields.io/github/last-commit/tinkerologie/ha-philips-airpurifier)](https://github.com/tinkerologie/ha-philips-airpurifier/commits/main)
-[![GitHub Release](https://img.shields.io/github/v/release/tinkerologie/ha-philips-airpurifier)](https://github.com/tinkerologie/ha-philips-airpurifier/releases)
-[![codecov](https://codecov.io/gh/tinkerologie/ha-philips-airpurifier/graph/badge.svg)](https://codecov.io/gh/tinkerologie/ha-philips-airpurifier)
-[![License](https://img.shields.io/github/license/tinkerologie/ha-philips-airpurifier)](./LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/tinkerologie/ha-philips-airpurifier)](https://github.com/tinkerologie/ha-philips-airpurifier/releases/latest)
+[![Continuous integration](https://github.com/tinkerologie/ha-philips-airpurifier/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/tinkerologie/ha-philips-airpurifier/actions/workflows/ci.yml?query=branch%3Amain)
+[![Test coverage](https://codecov.io/gh/tinkerologie/ha-philips-airpurifier/graph/badge.svg)](https://codecov.io/gh/tinkerologie/ha-philips-airpurifier)
+[![Apache 2.0 license](https://img.shields.io/github/license/tinkerologie/ha-philips-airpurifier)](./LICENSE)
+
 <!-- BADGES:END -->
 
-A comprehensive **Local Push** integration for Philips air purifiers and humidifiers in Home Assistant. This integration provides complete control over your Philips air quality devices using the encrypted CoAP protocol for local communication.
-
-## Table of Contents
-
-- [Features](#-features)
-- [Important Notice](#️-important-notice)
-- [Installation](#-installation)
-  - [HACS Installation (Recommended)](#hacs-installation-recommended)
-  - [Manual Installation](#manual-installation)
-- [Configuration](#️-configuration)
-- [Supported Devices](#-supported-devices)
-- [Available Entities](#-available-entities)
-- [Troubleshooting](#-troubleshooting)
-- [Contributing](#-contributing)
-- [Credits](#-credits)
-- [License](#-license)
-
-## Features
-
-- **Local Control**: Direct communication with your device without cloud dependency
-- **Auto-Discovery**: Automatic detection of compatible devices on your network
-- **Comprehensive Entity Support**: Fan, humidifier, sensors, switches, lights, and more
-- **Real-time Monitoring**: Air quality sensors, filter status, and device diagnostics
-- **Material Design Icons**: Entity icons are defined through `icons.json` following Home Assistant patterns
-- **Multi-language Support**: Available in English, German, Dutch, Bulgarian, Romanian, and Slovak
-- **HACS Compatible**: Easy installation and updates through HACS
-
-## ⚠️ Important Notice
-
-**Please read this carefully before installation:**
-
-Due to firmware limitations in Philips devices, this integration may experience stability issues. The connection might work initially but could become unresponsive over time. Common solutions include:
-
-- Power cycling the Philips device
-- Restarting Home Assistant
-- Both actions combined
-
-This integration includes automatic reconnection attempts, but they may not always succeed. These issues are inherent to the device firmware and cannot be resolved at the integration level.
-
-**Background**: This integration is based on reverse engineering work by [@rgerganov](https://github.com/rgerganov). Read more about the [technical details](https://xakcop.com/post/ctrl-air-purifier/).
-
-> **Note**: Philips has introduced a cloud-based API that works with Google Home and Alexa, but it's not publicly available for local integrations.
+[Install](#installation) · [Set up a device](#configuration) · [Check model support](#supported-devices) · [Add dashboard cards](#dashboard-cards) · [Get help](#troubleshooting)
 
 ## Installation
 
-### HACS Installation (Recommended)
+You need **Home Assistant 2026.9.0 or later** and a [supported Philips device](#supported-devices) that Home Assistant can reach over your local network. Some firmware versions disable local CoAP or stop responding to it intermittently. If local control is a purchase requirement, verify the firmware or buy from a seller with a return policy.
 
-1. **Add Repository**: Click the button below to add this repository to HACS:
+### Install with HACS
 
-   [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=tinkerologie&repository=ha-philips-airpurifier&category=integration)
+[![Open Philips AirPurifier in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=tinkerologie&repository=ha-philips-airpurifier&category=integration)
 
-2. **Install**: Search for "Philips AirPurifier" in HACS and install it
-3. **Restart**: Restart Home Assistant
-4. **Configure**: Follow the [Configuration](#️-configuration) steps below
+1. Open **Philips AirPurifier** in HACS.
+2. Select **Download**.
+3. Restart Home Assistant.
+4. [Add your device](#configuration).
 
-### Manual Installation
+### Install manually
 
-1. **Download**: Download `philips_airpurifier.zip` from the latest release on the [releases page](https://github.com/tinkerologie/ha-philips-airpurifier/releases)
-2. **Extract**: Create the folder `config/custom_components/philips_airpurifier/` and extract the zip into it. `manifest.json` must end up directly in that folder
-3. **Restart**: Restart Home Assistant
-4. **Configure**: Follow the [Configuration](#️-configuration) steps below
+1. Download `philips_airpurifier.zip` from the [latest release](https://github.com/tinkerologie/ha-philips-airpurifier/releases/latest).
+2. Extract the archive into `custom_components/philips_airpurifier/` in your Home Assistant configuration directory.
+3. Make sure that `manifest.json` is directly inside the `philips_airpurifier` directory.
+4. Restart Home Assistant.
+5. [Add your device](#configuration).
 
-Each release from 2026.10.4 on carries `philips_airpurifier.zip`, a `SHA256SUMS` file and a signed build provenance attestation. HACS and the Home Assistant Marketplace install the same zip. The "Downloaded N times" figure they show is the download count of the latest release's zip, so it starts again with each release. To check that a zip you downloaded is the one the release workflow built:
+<details>
+<summary>Verify the release archive</summary>
+
+Download `SHA256SUMS` from the same release. Run these commands from the directory that contains both files.
 
 ```bash
 gh attestation verify philips_airpurifier.zip -R tinkerologie/ha-philips-airpurifier
 sha256sum -c SHA256SUMS
 ```
 
-Keep `SHA256SUMS` in the same folder as the zip. On macOS, use `shasum -a 256 -c SHA256SUMS`.
+On macOS, use `shasum -a 256 -c SHA256SUMS`. The GitHub CLI command verifies the build provenance. The checksum command verifies the downloaded bytes.
+
+</details>
 
 ## Configuration
 
-### Prerequisites
+If Home Assistant discovers your device, open **Settings → Devices & services** and select **Configure** on the discovery card. Follow the instructions on the screen.
 
-- Home Assistant 2026.9.0 or newer
-- Philips air purifier/humidifier connected to your local network
-- Device must support local CoAP communication (see [Important Notice](#️-important-notice))
+### Add a device manually
 
-### Setup Steps
+_These steps use the procedural rules of ASD-STE100 Simplified Technical English._
 
-#### Automatic Discovery (Recommended)
+1. Open **Settings → Devices & services**.
+2. Select **Add integration**.
+3. Search for **Philips AirPurifier**.
+4. Select **Philips AirPurifier**.
+5. Enter the IP address or hostname of the Philips device.
+6. Select **Submit**.
 
-The integration automatically discovers compatible devices on your network using:
+Home Assistant identifies the model during setup. If the IP address changes and discovery cannot update it, open the integration entry menu and select **Reconfigure**.
 
-- MAC address patterns (B0F893*, 047863*, 849DC2*, 80A036*)
-- Hostname patterns (mxchip\*)
+ASD-STE100 was developed for aerospace maintenance documentation. This procedure applies its guidance on short sentences, imperative verbs, and one instruction per sentence. [ASD-STE100, section 5](https://www.asd-ste100.org/assets/files/ASD-STE100_ISSUE9.pdf)
 
-When a device is discovered, Home Assistant will show a notification. Simply follow the setup wizard.
+## Supported devices
 
-#### Manual Configuration
+Match the model code on your device label. Available entities depend on the model and firmware.
 
-If automatic discovery doesn't work:
+| Device family           | Supported models                                                                                                                                                                                                                                                                                               |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Air purifiers           | AC0650, AC0850, AC0950, AC0951, AC1214, AC1715, AC2210, AC2220, AC2221, AC2729, AC2889, AC2936, AC2939, AC2958, AC2959, AC3033, AC3036, AC3039, AC3055, AC3059, AC3210, AC3220, AC3221, AC3259, AC3420, AC3421, AC3737, AC3829, AC3836, AC3854, AC3858, AC4220, AC4221, AC4236, AC4550, AC4558, AC5659, AC5660 |
+| AMF combination devices | AMF765, AMF870                                                                                                                                                                                                                                                                                                 |
+| Humidifiers             | HU1509, HU1510, HU4209/00, HU5710                                                                                                                                                                                                                                                                              |
+| Fans and heaters        | CX3120, CX3550, CX5120, CX7550                                                                                                                                                                                                                                                                                 |
 
-1. **Navigate**: Go to **Settings** → **Devices & Services**
-2. **Add Integration**: Click **Add Integration**
-3. **Search**: Search for "Philips AirPurifier" and select it
-4. **Enter Details**: Provide your device's IP address or hostname
-5. **Complete Setup**: The model will be detected automatically
+<details>
+<summary>Model variants and firmware behavior</summary>
 
-### Important Notes
+- **AC0850.** Variants /11, /20, /31, /41, /70, /81, and /85 are listed. For /11, /20, /31, /41, and /70, the integration distinguishes `AWS_Philips_AIR` from `AWS_Philips_AIR_Combo`.
+- **AC3854 and AC3858.** AC3854 variants are /25, /50, and /51. AC3858 variants are /50, /51, /83, and /86.
+- **AMF765 and AMF870.** The Oscillation number entity sets the angle. Set it to `0°` to stop or to `30°` through `350°` in `5°` steps. The fan oscillation toggle restores the last reported angle or uses `90°` if none is known.
+- **CX5120 and CX7550.** Push-only firmware can require a brief display backlight change during setup or reconnect to make the device send status. The CX5120 change is unreleased and was verified on CX5120/11 firmware 0.4.9.
+- **CX7550.** Use the Philips Air+ app to join Wi-Fi. In standby, firmware keeps the display backlight dim and ignores commands to turn it off. The **Standby temperature display** switch controls the temperature readout separately.
 
-- **No YAML Configuration**: This integration uses the UI-based config flow only
-- **IP Address Changes**: If your device's IP changes, the integration will attempt to auto-update. If this fails, simply reconfigure with the new IP address
-- **Model Detection**: Unsupported models will generate a warning in the logs
+</details>
 
-### Reconfiguration
+## Available entities
 
-If your device changes IP addresses:
+| Function | What Home Assistant can expose                                                                             |
+| -------- | ---------------------------------------------------------------------------------------------------------- |
+| Control  | Fan power, speed, presets, and oscillation. Humidifier target and modes. Climate target and heating modes. |
+| Monitor  | PM2.5, indoor allergen index, gas, humidity, and temperature.                                              |
+| Maintain | Filter life and replacement alerts, water refill alerts, and device repairs.                               |
+| Adjust   | Display backlight, child lock, timer, and other model-specific settings.                                   |
 
-- **With Auto-discovery**: The integration will automatically detect and update the IP address
-- **Manual Setup**: Add the device again with the new IP address - Home Assistant will recognize it's the same device and update the configuration
+For example, use the PM2.5 sensor in an automation that changes the purifier preset. Use the filter life sensor to plan a replacement.
 
-## Supported Devices
+## Dashboard cards
 
-> **⚠️ Firmware Compatibility Warning**: Some newer firmware versions may disable local CoAP communication. If purchasing a device specifically for Home Assistant integration, ensure you can return it if the integration doesn't work.
+The integration loads three cards automatically. In the dashboard editor, select **Add card**, then choose **Philips Purifier**, **Philips Air Quality**, or **Philips Humidity**. Select your device in the card editor. Reload the browser if the cards do not appear after an update.
 
-### Device Support Summary
+| Card                | Use it to                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------- |
+| Philips Purifier    | Control power, preset, speed, and supported device features. View filter life and PM2.5.           |
+| Philips Air Quality | Compare available readings and show a 24-hour PM2.5 trend from Home Assistant recorder statistics. |
+| Philips Humidity    | View humidity and water level. Set target humidity or mode when the device exposes those controls. |
 
-| Device Category   | Model Count    | Series Supported                                                                                                                                               |
-| ----------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Air Purifiers** | 50+ models     | AC0650, AC0850, AC0950, AC1214, AC1715, AC2729, AC2889, AC2936, AC3033, AC3055, AC3210, AC3259, AC3420, AC3737, AC3829, AC3854, AC3858, AC4220, AC4550, AC5659 |
-| **2-in-1 Combos** | 7 models       | AC0850C series, AMF765, AMF870                                                                                                                                 |
-| **Humidifiers**   | 5 models       | CX3120, CX3550, CX5120, HU1509, HU1510, HU5710                                                                                                                 |
-| **Fans**          | 1 model        | CX7550                                                                                                                                                         |
-| **Total**         | **63+ models** | **29 series**                                                                                                                                                  |
+<details>
+<summary>YAML examples and card options</summary>
 
-### Air Purifiers
+Use the Home Assistant device ID for `device_id`.
 
-| Model Series | Variants                                   | Type                    |
-| ------------ | ------------------------------------------ | ----------------------- |
-| **AC0650**   | AC0650/10                                  | Compact Air Purifiers   |
-| **AC0850**   | /11, /20, /31, /41, /70, /81, /85          | Compact Air Purifiers   |
-| **AC0950**   | AC0950, AC0951                             | Compact Air Purifiers   |
-| **AC1214**   | AC1214                                     | Compact Air Purifiers   |
-| **AC1715**   | AC1715                                     | Compact Air Purifiers   |
-| **AC2200**   | AC2210/10, AC2220/10, AC2221/13            | PureProtect Quiet 2200  |
-| **AC2729**   | AC2729                                     | Mid-range Air Purifiers |
-| **AC2889**   | AC2889                                     | Mid-range Air Purifiers |
-| **AC2936**   | AC2936, AC2939, AC2958, AC2959             | Mid-range Air Purifiers |
-| **AC3033**   | AC3033, AC3036, AC3039                     | Advanced Air Purifiers  |
-| **AC3055**   | AC3055, AC3059                             | Advanced Air Purifiers  |
-| **AC3210**   | AC3210, AC3220, AC3221                     | Advanced Air Purifiers  |
-| **AC3259**   | AC3259                                     | Advanced Air Purifiers  |
-| **AC3420**   | AC3420, AC3421                             | Advanced Air Purifiers  |
-| **AC3737**   | AC3737                                     | Advanced Air Purifiers  |
-| **AC3829**   | AC3829, AC3836                             | Advanced Air Purifiers  |
-| **AC3854**   | AC3854/25, AC3854/50, AC3854/51            | Advanced Air Purifiers  |
-| **AC3858**   | AC3858/50, AC3858/51, AC3858/83, AC3858/86 | Advanced Air Purifiers  |
-| **AC4220**   | AC4220, AC4221, AC4236                     | Premium Air Purifiers   |
-| **AC4550**   | AC4550, AC4558                             | Premium Air Purifiers   |
-| **AC5659**   | AC5659, AC5660                             | Premium Air Purifiers   |
+```yaml
+type: custom:philips-airpurifier-purifier-card
+device_id: YOUR_HOME_ASSISTANT_DEVICE_ID
+```
 
-### Air Purifier & Humidifier Combos (2-in-1)
+```yaml
+type: custom:philips-airpurifier-air-quality-card
+device_id: YOUR_HOME_ASSISTANT_DEVICE_ID
+```
 
-| Model Series     | Variants                | Type                                      |
-| ---------------- | ----------------------- | ----------------------------------------- |
-| **AC0850 Combo** | /11, /20, /31, /41, /70 | Compact 2-in-1 Devices                    |
-| **AMF765**       | AMF765                  | Advanced 2-in-1 Air Purifier & Humidifier |
-| **AMF870**       | AMF870                  | Premium 2-in-1 Air Purifier & Humidifier  |
+```yaml
+type: custom:philips-airpurifier-humidity-card
+device_id: YOUR_HOME_ASSISTANT_DEVICE_ID
+```
 
-### Humidifiers
+| Card        | Optional settings                                                  |
+| ----------- | ------------------------------------------------------------------ |
+| All cards   | `name`                                                             |
+| Purifier    | `entity`, `show_presets`, `show_speed`, `show_filter`, `show_pm25` |
+| Air Quality | Ordered `sensors` list, `show_trend`, `show_climate`               |
+| Humidity    | `entity`, `show_target_control`, `show_mode`, `show_water_level`   |
 
-| Model Series | Variants       | Type                |
-| ------------ | -------------- | ------------------- |
-| **CX3120**   | CX3120         | Compact Humidifier  |
-| **CX3550**   | CX3550         | Compact Humidifier  |
-| **CX5120**   | CX5120         | Advanced Humidifier |
-| **HU1509**   | HU1509, HU1510 | Compact Humidifier  |
-| **HU5710**   | HU5710         | Premium Humidifier  |
+An `entity` override must belong to the selected device. Omit the `sensors` list to show the supported readings in Philips app order. Gas and TVOC are device indices. The air quality card accepts the theme variables `--pap-good-color`, `--pap-fair-color`, `--pap-poor-color`, and `--pap-very-poor-color`.
 
-### Fans
+If you manage dashboard resources in YAML, you can register the module explicitly.
 
-| Model Series | Variants  | Type            |
-| ------------ | --------- | --------------- |
-| **CX7550**   | CX7550/01 | Oscillating Fan |
+```yaml
+resources:
+  - url: /philips_airpurifier_frontend/philips-airpurifier-cards.js
+    type: module
+```
 
-### Special Variants & Notes
-
-**AC0850 Series Special Variants:**
-
-- **AWS_Philips_AIR**: Standard air purifier mode (AC0850/11, /20, /31, /41, /70)
-- **AWS_Philips_AIR_Combo**: 2-in-1 air purifier and humidifier mode (AC0850/11C, /20C, /31C, /41C, /70C)
-
-**Model Naming Convention:**
-
-- Models with `/XX` suffix indicate regional variants (e.g., AC3854/50, AC3858/51)
-- Models with `C` suffix indicate combo (2-in-1) variants where applicable
-- AMF series are dedicated 2-in-1 air purifier and humidifier devices
-- CX and HU series are dedicated humidifiers
-
-**AMF765 / AMF870 Rotation (Oscillation) Notes:**
-
-- The AMF models keep the rotation angle and the on/off state in a single device value, which this integration surfaces in two ways:
-  - the **Oscillation** number entity sets the angle directly — `0°` stops the rotation, `30°` to `350°` (in 5° steps) start it at that angle;
-  - the fan entity's **oscillation** toggle (`fan.oscillate`) starts and stops the rotation without having to pick an angle.
-- Turning the rotation off and on again restores the last angle the device reported. If no angle has been seen yet (for example, right after a Home Assistant restart), switching it on uses 90°.
-
-**CX7550 Oscillating Fan Notes:**
-
-- **Initial setup requires the Philips Air app**: the CX7550 must first be joined to your Wi-Fi network with the official Philips Air mobile app. Once it is on the network, this integration controls it entirely locally over CoAP — no cloud or app is needed for day-to-day use.
-- **Push-only firmware**: the `AWS_Philips_AIR_Combo` firmware never answers a direct status read and only pushes updates on a real state change. The integration handles this automatically by briefly toggling the display backlight to elicit an update, so the backlight may flicker momentarily on (re)connect.
-- **Display in standby (firmware limitation)**: while the fan is powered **off**, the device forces its display to a dim standby level and ignores "off" commands. As a result, the display backlight **cannot be turned off from Home Assistant while the fan is off** — it can be controlled normally while the fan is running. A separate **Standby temperature display** switch toggles whether the temperature readout is shown in standby.
-
-## Available Entities
-
-This integration provides comprehensive control through various Home Assistant entity types:
-
-### Core Entities
-
-| Entity Type    | Description                             | Features                              |
-| -------------- | --------------------------------------- | ------------------------------------- |
-| **Fan**        | Main device control                     | Power, speed, preset modes, rotation  |
-| **Humidifier** | Humidity control (2-in-1 models)        | Target humidity, humidification modes |
-| **Climate**    | Temperature control (applicable models) | Temperature settings, heating modes   |
-
-### Monitoring Entities
-
-| Entity Type        | Examples                          | Purpose                |
-| ------------------ | --------------------------------- | ---------------------- |
-| **Sensors**        | PM2.5, IAI, Temperature, Humidity | Air quality monitoring |
-| **Binary Sensors** | Filter replacement, Water refill  | Maintenance alerts     |
-
-### Control Entities
-
-| Entity Type  | Examples                          | Purpose          |
-| ------------ | --------------------------------- | ---------------- |
-| **Switches** | Child lock, Display light         | Device settings  |
-| **Lights**   | Display brightness, Status lights | Visual controls  |
-| **Select**   | Timer settings, Function modes    | Advanced options |
-| **Number**   | Custom values (model-dependent)   | Precise control  |
-
-### Entity Attributes
-
-The fan entity includes additional attributes with device information:
-
-| Attribute          | Description            | Example                            |
-| ------------------ | ---------------------- | ---------------------------------- |
-| `name`             | Device name            | "bedroom"                          |
-| `type`             | Configured model       | "AC2729"                           |
-| `model_id`         | Philips model ID       | "AC2729/10"                        |
-| `product_id`       | Philips product ID     | "85bc26fae62611e8a1e3061302926720" |
-| `device_id`        | Philips device ID      | "3c84c6c8123311ebb1ae8e3584d00715" |
-| `software_version` | Device firmware        | "0.2.1"                            |
-| `wifi_version`     | WiFi module version    | "AWS_Philips_AIR@62.1"             |
-| `error_code`       | Philips error code     | "49408"                            |
-| `error`            | Human-readable error   | "no water"                         |
-| `preferred_index`  | Air quality index type | "PM2.5", "IAI"                     |
-| `runtime`          | Device uptime          | "9 days, 10:44:41"                 |
+</details>
 
 ## Troubleshooting
 
-### Debug Logging
+| Symptom                                  | What to do                                                                                                              |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| No discovery card                        | Confirm that Home Assistant can reach the device. [Add it manually](#add-a-device-manually) with its IP address.        |
+| Device unavailable                       | Stop other local CoAP clients that access the same device. If the connection stays unavailable, power-cycle the device. |
+| Integration missing after manual install | Confirm the location of `manifest.json`. Restart Home Assistant and review **Settings → System → Logs**.                |
+| Dashboard card missing                   | Reload the browser after Home Assistant restarts. Confirm that the integration is loaded.                               |
 
-To enable detailed logging, add this to your `configuration.yaml`:
+### Collect logs for a connection problem
+
+A device can answer ping and the Philips Air+ app while local CoAP remains unresponsive. The integration attempts to reconnect. For intermittent failures such as [issue #172](https://github.com/tinkerologie/ha-philips-airpurifier/issues/172), collect a log that includes both the outage and recovery.
+
+<details>
+<summary>Debug log settings and reconnect messages</summary>
+
+Add these loggers to `configuration.yaml` and restart Home Assistant. You can also set the same levels temporarily with the `logger.set_level` action.
 
 ```yaml
 logger:
@@ -273,210 +175,32 @@ logger:
     philips_airctrl: debug
 ```
 
-Logs will be available in `home-assistant.log`.
+Leave the watchdog settings as they were when the issue occurred. Stop other local CoAP clients, such as a second Home Assistant instance. If possible, download device diagnostics during the outage and after recovery. The `connection` section contains the reconnect state and last error.
 
-### Common Issues
+| Log message                          | Meaning                                                              |
+| ------------------------------------ | -------------------------------------------------------------------- |
+| `No updates from … for N seconds`    | The last push arrived approximately N seconds before this line.      |
+| `failed at the create stage`         | The device did not answer the connection handshake.                  |
+| `failed at the status stage`         | The handshake worked but the device did not answer the status read.  |
+| `registered but no initial response` | The client subscribed but received no initial push.                  |
+| `Reconnected … after N attempt(s)`   | The connection recovered. The log line includes the outage duration. |
 
-| Problem                 | Solution                                                   |
-| ----------------------- | ---------------------------------------------------------- |
-| Device not discovered   | Check network connectivity, ensure device supports CoAP    |
-| Connection drops        | Power cycle device, restart Home Assistant                 |
-| Entities unavailable    | Check device firmware version, verify local API is enabled |
-| Integration not loading | Check Home Assistant logs, verify installation             |
+Download the log from **Settings → System → Logs**. Restore the normal log levels after the capture. Remove IP addresses, device identifiers, and personal names before sharing logs or diagnostics.
 
-### Device answers ping and the app, but goes unavailable
+</details>
 
-Some devices stop answering the local CoAP connection for a while, often at
-night, while they still answer ping and the Philips Air+ cloud app
-([#172](https://github.com/tinkerologie/ha-philips-airpurifier/issues/172)).
-The cause is not known yet. To help diagnose it, collect one night of evidence:
+### Report a bug or request model support
 
-1. Enable the three debug loggers above. Either add them to `configuration.yaml`
-   and restart, or call the `logger.set_level` action (no restart, resets on restart).
-2. Keep your current options (for example, watchdog on and your missed package count).
-3. Do not run another local CoAP client for the device, such as the `aioairctrl` CLI
-   or a second Home Assistant instance. It can take over the device's connection.
-   The cloud app and ping are fine; note when you use the app.
-4. If you can, download the device diagnostics once during an outage and once after
-   it recovers. The `connection` section shows the reconnect state and last error.
-5. In the morning, download the log from **Settings → System → Logs**, set the loggers
-   back to `warning`, and replace the device IP and names before sharing.
+Search [existing issues](https://github.com/tinkerologie/ha-philips-airpurifier/issues) first. For a new report, include the full model code, device firmware, Home Assistant version, integration version, and the steps to reproduce the problem. Use the [issue forms](https://github.com/tinkerologie/ha-philips-airpurifier/issues/new/choose).
 
-How to read the log lines:
-
-| Log line                                             | Meaning                                                                                       |
-| ---------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `No updates from … for N seconds (watchdog interval` | No push for N seconds. The silence started N seconds before this line, not at this timestamp. |
-| `Reconnect … failed at the create stage`             | The device did not answer the connection handshake (sync).                                    |
-| `Reconnect … failed at the status stage`             | The handshake worked, but the status read got no answer.                                      |
-| `registered but no initial response`                 | The push subscription was sent, but the device never sent its first update.                   |
-| `Reconnected … after N attempt(s)`                   | Recovery succeeded after N attempts; the line shows how long the device was unavailable.      |
-
-### Getting Help for Unsupported Models
-
-If your model isn't supported yet, you can help by providing device data:
-
-#### 1. Prepare Environment
-
-```bash
-# Create virtual environment
-python -m venv env
-source ./env/bin/activate  # On Windows: env\Scripts\activate
-
-# Install required package
-python -m pip install philips-airctrl
-```
-
-#### 2. Collect Device Data
-
-```bash
-# Replace $DEVICE_IP with your device's IP address
-philips-airctrl --host $DEVICE_IP status --json
-```
-
-#### 3. Submit Data
-
-1. Test different modes and speeds using the Philips app
-2. Collect JSON output for each configuration
-3. [Open an issue](https://github.com/tinkerologie/ha-philips-airpurifier/issues) with the collected data
-
-#### 4. Clean Up
-
-```bash
-deactivate  # Exit virtual environment
-```
-
-## Entity Icons
-
-Entity icons are defined using Home Assistant `icons.json` with Material Design Icons (`mdi:`) values.
+For a model request, use the [philips-airctrl CLI](https://github.com/tinkerologie/philips-airctrl) to collect status data if the device responds to a status read. Stop the integration for that device before running another local CoAP client. Capture the relevant modes and remove identifiers before attaching the data.
 
 ## Contributing
 
-Contributions are welcome! Here's how you can help:
+Read the [contribution guide](./CONTRIBUTING.md) for issue triage, local setup, and pull request checks. See the [changelog](./CHANGELOG.md) for release changes and the [quality scale self-audit](./custom_components/philips_airpurifier/quality_scale.yaml) for implementation status.
 
-### Reporting Issues
+## Credits and license
 
-- Use the [issue tracker](https://github.com/tinkerologie/ha-philips-airpurifier/issues)
-- Provide detailed information about your device model and firmware
-- Include relevant logs when reporting bugs
+The integration builds on [rgerganov’s protocol research](https://xakcop.com/post/ctrl-air-purifier/), [betaboon’s original CoAP integration](https://github.com/betaboon/philips-airpurifier-coap), and work by [Denaun](https://github.com/Denaun), [mhetzi](https://github.com/mhetzi), [Kraineff](https://github.com/Kraineff), [shexbeer](https://github.com/shexbeer), [Thomas Lovén](https://github.com/thomasloven), and the [project contributors](https://github.com/tinkerologie/ha-philips-airpurifier/graphs/contributors).
 
-### Adding Device Support
-
-1. **Test your device** with the integration
-2. **Collect device data** using the steps in [Troubleshooting](#-troubleshooting)
-3. **Submit the data** via an issue or pull request
-
-### Code Contributions
-
-1. **Fork** the repository
-2. **Create** a feature branch: `git checkout -b feature/amazing-feature`
-3. **Commit** your changes: `git commit -m 'Add amazing feature'`
-4. **Push** to the branch: `git push origin feature/amazing-feature`
-5. **Open** a Pull Request
-
-### Development Setup
-
-```bash
-# Clone the repository
-git clone https://github.com/tinkerologie/ha-philips-airpurifier.git
-cd ha-philips-airpurifier
-
-# Install development dependencies
-pip install -r requirements-dev.txt
-
-# Run tests
-pytest
-```
-
-## Credits
-
-This integration builds upon the excellent work of many contributors:
-
-- **[@rgerganov](https://github.com/rgerganov)**: Original reverse engineering and [py-air-control](https://github.com/rgerganov/py-air-control)
-- **[@betaboon](https://github.com/betaboon)**: Initial [philips-airpurifier-coap](https://github.com/betaboon/philips-airpurifier-coap) integration
-- **[@Denaun](https://github.com/Denaun)**: Major rework and improvements
-- **[@mhetzi](https://github.com/mhetzi)**: Timer and reconnection functionality
-- **[@Kraineff](https://github.com/Kraineff)**: Various contributions and testing
-- **[@shexbeer](https://github.com/shexbeer)**: Device support and testing
-- **[@thomasloven](https://github.com/thomasloven)**: Custom icon implementation
-
-## License
-
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details. The bundled icon loading and handling code by Thomas Lovén remains under the MIT License ([LICENSE.txt](./custom_components/philips_airpurifier/LICENSE.txt)).
-
----
-
-### Made with ❤️ for the Home Assistant community
-
-If you find this integration useful, consider:
-
-- ⭐ Starring this repository
-- 🐛 Reporting issues
-- 🔧 Contributing improvements
-- ☕ [Supporting the project](https://github.com/sponsors/ruaan-deysel)
-
-## Dashboard cards
-
-Requires **Home Assistant 2026.9.0 or later**. The integration automatically loads its
-packaged cards after restart; select **Philips Purifier**, **Philips Air Quality**, or
-**Philips Humidity** in the dashboard card picker. Each has a visual editor with a
-device selector. Only entities exposed by that device appear. Reload the browser
-after upgrading if the picker has not refreshed.
-
-```yaml
-type: custom:philips-airpurifier-purifier-card
-device_id: YOUR_PHILIPS_DEVICE_ID
-```
-
-```yaml
-type: custom:philips-airpurifier-air-quality-card
-device_id: YOUR_PHILIPS_DEVICE_ID
-```
-
-```yaml
-type: custom:philips-airpurifier-humidity-card
-device_id: YOUR_PHILIPS_DEVICE_ID
-```
-
-All cards accept `device_id` and an optional `name`. Purifier and humidity cards
-also accept an `entity` override belonging to the selected device. The purifier
-card supports `show_presets`, `show_speed`, `show_filter`, and `show_pm25` (all
-true by default). Its controls panel mirrors the Philips Air+ app: power and
-child-lock buttons, a mode button that opens a "Choose a mode" sheet (shown as
-Auto+ when the Auto+ switch is on), and tiles for the display light, fan speed,
-light ring and timer, each shown only when the device supports it. The
-humidity card supports `show_target_control`, `show_mode`, and `show_water_level`
-(all true by default). Target bounds and step come from the actual device entities;
-missing metadata disables the target control. The air-quality card accepts an
-optional ordered `sensors` list; omit it to discover all supported readings in
-Philips app order (PM2.5, gas, allergens, TVOC). It rates readings as Good, Fair,
-Poor or Very poor (PM2.5 uses US EPA breakpoints 12/35/55 µg/m³; IAI uses 1–12 and
-gas uses L1–L4), shows a 24-hour PM2.5 trend from hourly recorder statistics
-(`show_trend`) and the device's humidity and temperature (`show_climate`). Override
-the level colours with the `--pap-good-color`, `--pap-fair-color`,
-`--pap-poor-color` and `--pap-very-poor-color` theme variables.
-TVOC and gas readings are device indices, not concentration measurements.
-
-Unavailable/unknown values are shown explicitly and unavailable controls are disabled.
-Service errors appear on the card. Filter details open Home Assistant more-info;
-filter resets remain deliberate integration actions. Scheduling and history use
-Home Assistant automations and recorder rather than unexposed Philips cloud data.
-
-For manual module registration (including YAML-managed dashboard resources), use:
-
-```yaml
-resources:
-  - url: /philips_airpurifier_frontend/philips-airpurifier-cards.js
-    type: module
-```
-
-Automatic loading uses the integration version and a bundle content hash to refresh
-cached assets. Registration is safe if the module is also present in manual resources.
-
-The integration targets the applicable implementation rules through Platinum on the
-Integration Quality Scale. Documentation gaps and incomplete upstream public typing remain recorded in `quality_scale.yaml`;
-this is a self-audit of a custom integration, not an official Platinum certification.
-
-For development, run `./script/setup/project`, then the repository `script/` checks.
-The isolated `frontend/` workspace uses `npm run typecheck`, `npm test`, and
-`npm run build`; commit the generated module together with source changes.
+The project uses the [Apache 2.0 license](./LICENSE). The bundled icon handling code uses the [MIT license](./custom_components/philips_airpurifier/LICENSE.txt). You can also [support the project on GitHub Sponsors](https://github.com/sponsors/ruaan-deysel).
