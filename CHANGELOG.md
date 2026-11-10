@@ -16,6 +16,9 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 
 - Connectivity and filter repairs now belong to individual devices. Removing a device cleans
   up its repairs without affecting other devices (#188).
+- CX5120 heaters with firmware 0.4.9 (`AWS_Philips_AIR@86.1`) never answer a status read and
+  only push on a real state change, so setup timed out. The CX5120 now declares a status nudge
+  that toggles the display backlight (`D03105`) to elicit the first status push (#203).
 
 ### Security
 
