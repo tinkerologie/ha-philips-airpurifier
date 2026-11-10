@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from pytest_homeassistant_custom_component.common import MockConfigEntry
-
 from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
 from homeassistant.const import ATTR_ENTITY_ID, STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
 from .const import TEST_DEVICE_ID, TEST_MODEL
+
+from tests.harness import MockConfigEntry
 
 if TYPE_CHECKING:
     from unittest.mock import AsyncMock

@@ -7,6 +7,16 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 
 ## [Unreleased]
 
+### Changed
+
+- Development and HA Next use Home Assistant's official pytest plugin when available. The
+  Home Assistant 2026.9.0 compatibility job retains its isolated legacy harness (#193).
+
+### Fixed
+
+- Connectivity and filter repairs now belong to individual devices. Removing a device cleans
+  up its repairs without affecting other devices (#188).
+
 ### Security
 
 - Development dependencies only; the integration itself ships no Pillow or npm code. The

@@ -5,7 +5,6 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.philips_airpurifier.const import (
     CONF_DEVICE_ID,
@@ -31,6 +30,8 @@ from .const import (
     TEST_MODEL,
     TEST_NAME,
 )
+
+from tests.harness import MockConfigEntry
 
 
 @pytest.fixture(autouse=True)

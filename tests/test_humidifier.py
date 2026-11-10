@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.philips_airpurifier.const import (
     CONF_DEVICE_ID,
@@ -32,6 +31,8 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
+
+from tests.harness import MockConfigEntry
 
 if TYPE_CHECKING:
     from collections.abc import Generator

@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry, mock_component
 
 from custom_components.philips_airpurifier.const import (
     CONF_DEVICE_ID,
@@ -20,6 +19,8 @@ from homeassistant.core import HomeAssistant
 
 from .const import MOCK_STATUS_GEN1, TEST_DEVICE_ID, TEST_HOST, TEST_MODEL, TEST_NAME
 from .fixtures.deprecations import HANDLER as DEPRECATION_REPORTS
+
+from tests.harness import USING_LEGACY_HARNESS, MockConfigEntry, mock_component
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -117,9 +118,11 @@ def mock_coap_client_config_flow() -> Generator[AsyncMock]:
         yield client
 
 
-@pytest.fixture(autouse=True)
-def auto_enable_custom_integrations(enable_custom_integrations: None) -> None:
-    """Enable custom integrations for all tests."""
+if USING_LEGACY_HARNESS:
+
+    @pytest.fixture(autouse=True)
+    def auto_enable_custom_integrations(enable_custom_integrations: None) -> None:
+        """Enable custom integrations on the minimum Home Assistant release."""
 
 
 @pytest.fixture

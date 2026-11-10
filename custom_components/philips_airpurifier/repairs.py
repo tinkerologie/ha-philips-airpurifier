@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from inspect import signature
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -25,6 +26,22 @@ if TYPE_CHECKING:
     from .coordinator import PhilipsAirPurifierCoordinator
 
 _LOGGER = logging.getLogger(__name__)
+_CONNECTIVITY_ISSUE = "connectivity_issue"
+_FILTER_ISSUE = "filter_replacement_warning"
+# Remove the compatibility check once Home Assistant 2026.11 is the minimum.
+_HAS_ISSUE_CONFIG_ENTRY_ID = "config_entry_id" in signature(ir.async_create_issue).parameters
+
+
+def _entry_issue_id(issue: str, entry_id: str | None) -> str:
+    """Scope a repair ID to its config entry when available."""
+    return f"{issue}_{entry_id}" if entry_id is not None else issue
+
+
+@callback
+def async_delete_entry_issues(hass: HomeAssistant, entry_id: str) -> None:
+    """Remove the repairs for one entry on every supported Home Assistant version."""
+    for issue in (_CONNECTIVITY_ISSUE, _FILTER_ISSUE):
+        async_delete_issue(hass, _entry_issue_id(issue, entry_id))
 
 
 def _entity_registry_identity(entity: Any) -> tuple[str, str, str] | None:
@@ -46,12 +63,12 @@ async def async_create_fix_flow(
     data: dict[str, str | int | float | None] | None,
 ) -> RepairsFlow:
     """Create flow to fix an issue."""
-    if issue_id == "connectivity_issue":
-        return ConnectivityRepairFlow()
+    if issue_id == _CONNECTIVITY_ISSUE or issue_id.startswith(f"{_CONNECTIVITY_ISSUE}_"):
+        return ConnectivityRepairFlow(data)
     if issue_id == "entity_registry_cleanup":
         return EntityRegistryCleanupFlow()
-    if issue_id == "filter_replacement_warning":
-        return FilterReplacementWarningFlow(data)
+    if issue_id == _FILTER_ISSUE or issue_id.startswith(f"{_FILTER_ISSUE}_"):
+        return FilterReplacementWarningFlow(data, issue_id=issue_id)
     if issue_id == "configuration_migration":
         return ConfigurationMigrationFlow()
     if issue_id == "duplicate_entities":
@@ -62,6 +79,10 @@ async def async_create_fix_flow(
 
 class ConnectivityRepairFlow(RepairsFlow):
     """Handler for connectivity issues."""
+
+    def __init__(self, data: dict[str, str | int | float | None] | None = None) -> None:
+        """Store the issue's owning entry when available."""
+        self._entry_id = (data or {}).get("entry_id")
 
     async def async_step_init(self, user_input: dict[str, str] | None = None) -> RepairsFlowResult:
         """Handle the initial step."""
@@ -84,7 +105,11 @@ class ConnectivityRepairFlow(RepairsFlow):
         """Attempt to fix connectivity issues."""
         try:
             # Get the config entry for this repair
-            config_entries = self.hass.config_entries.async_entries(DOMAIN)
+            if isinstance(self._entry_id, str):
+                entry = self.hass.config_entries.async_get_entry(self._entry_id)
+                config_entries = [entry] if entry is not None and entry.domain == DOMAIN else []
+            else:
+                config_entries = self.hass.config_entries.async_entries(DOMAIN)
             if not config_entries:
                 return self.async_create_entry(
                     title="Connectivity Check",
@@ -209,8 +234,11 @@ class EntityRegistryCleanupFlow(RepairsFlow):
 class FilterReplacementWarningFlow(RepairsFlow):
     """Handler for filter replacement warnings."""
 
-    def __init__(self, data: dict[str, str | int | float | None] | None = None) -> None:
-        """Store the issue data so we can locate the config entry."""
+    def __init__(
+        self, data: dict[str, str | int | float | None] | None = None, *, issue_id: str = _FILTER_ISSUE
+    ) -> None:
+        """Store the repair ID and the data used to locate its config entry."""
+        self._issue_id = issue_id
         self._data = data or {}
 
     async def async_step_init(self, user_input: dict[str, str] | None = None) -> RepairsFlowResult:
@@ -240,13 +268,15 @@ class FilterReplacementWarningFlow(RepairsFlow):
         entry_id = self._data.get("entry_id")
         if entry_id:
             entry = self.hass.config_entries.async_get_entry(str(entry_id))
-            if entry is not None:
+            if entry is not None and entry.domain == DOMAIN:
                 self.hass.config_entries.async_update_entry(
                     entry,
                     options={**entry.options, OPT_FILTER_WARNING_ACK: True},
                 )
 
-        async_delete_issue(self.hass, "filter_replacement_warning")
+        async_delete_issue(self.hass, self._issue_id)
+        if self._issue_id != _FILTER_ISSUE:
+            async_delete_issue(self.hass, _FILTER_ISSUE)
         return self.async_create_entry(title="Filter Warning Acknowledged", data={"result": "warning_acknowledged"})
 
 
@@ -378,9 +408,12 @@ def async_create_issue(
     issue_id: str,
     translation_key: str,
     severity: ir.IssueSeverity = ir.IssueSeverity.WARNING,
+    *,
+    config_entry_id: str | None = None,
     **kwargs: Any,
 ) -> None:
-    """Create a repair issue."""
+    """Create a repair issue and attach its entry on supported releases."""
+    ownership = {"config_entry_id": config_entry_id} if _HAS_ISSUE_CONFIG_ENTRY_ID and config_entry_id else {}
     ir.async_create_issue(
         hass,
         DOMAIN,
@@ -388,6 +421,7 @@ def async_create_issue(
         is_fixable=True,
         severity=severity,
         translation_key=translation_key,
+        **ownership,
         **kwargs,
     )
 
@@ -402,16 +436,31 @@ async def async_check_integration_health(
     hass: HomeAssistant, coordinator: PhilipsAirPurifierCoordinator
 ) -> None:  # pragma: no cover
     """Check integration health and create repair issues if needed."""
-    # Check connectivity
+    entry = coordinator.config_entry
+    if not isinstance(getattr(entry, "entry_id", None), str):
+        entry = next(
+            (e for e in hass.config_entries.async_entries(DOMAIN) if e.data.get(CONF_HOST) == coordinator.host),
+            None,
+        )
+    entry_id = entry.entry_id if entry is not None else None
+    issue_data = {"entry_id": entry_id} if entry_id is not None else None
+    connectivity_id = _entry_issue_id(_CONNECTIVITY_ISSUE, entry_id)
+    filter_id = _entry_issue_id(_FILTER_ISSUE, entry_id)
+    if entry_id is not None:
+        async_delete_issue(hass, _CONNECTIVITY_ISSUE)
+        async_delete_issue(hass, _FILTER_ISSUE)
+
     if not coordinator.client:
         async_create_issue(
             hass,
-            "connectivity_issue",
-            "connectivity_issue",
+            connectivity_id,
+            _CONNECTIVITY_ISSUE,
             severity=ir.IssueSeverity.ERROR,
+            config_entry_id=entry_id,
+            data=issue_data,
         )
     else:
-        async_delete_issue(hass, "connectivity_issue")
+        async_delete_issue(hass, connectivity_id)
 
     # Check for filter replacement needs
     status = coordinator.data or {}
@@ -435,12 +484,6 @@ async def async_check_integration_health(
                     filter_warning_needed = True
                     break
 
-    # Locate the config entry for this coordinator so the warning can be
-    # acknowledged persistently and reset once a filter is replaced (issue #29).
-    entry = next(
-        (e for e in hass.config_entries.async_entries(DOMAIN) if e.data.get(CONF_HOST) == coordinator.host),
-        None,
-    )
     acknowledged = bool(entry and entry.options.get(OPT_FILTER_WARNING_ACK, False))
 
     if filter_warning_needed:
@@ -449,13 +492,14 @@ async def async_check_integration_health(
         if not acknowledged:
             async_create_issue(
                 hass,
-                "filter_replacement_warning",
-                "filter_replacement_warning",
+                filter_id,
+                _FILTER_ISSUE,
                 severity=ir.IssueSeverity.WARNING,
-                data={"entry_id": entry.entry_id} if entry else None,
+                config_entry_id=entry_id,
+                data=issue_data,
             )
     else:
-        async_delete_issue(hass, "filter_replacement_warning")
+        async_delete_issue(hass, filter_id)
         # Filters are healthy again (e.g. replaced): clear the acknowledgment so
         # a future low-filter condition surfaces a fresh warning.
         if acknowledged and entry is not None:

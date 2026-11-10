@@ -2,7 +2,7 @@
 """Import every integration module and fail on deprecated use.
 
 Run it against a Home Assistant release the tests cannot use yet, such as a beta
-without a matching pytest-homeassistant-custom-component. It fails when a module
+without a matching pytest-homeassistant. It fails when a module
 cannot be imported, when a ``DeprecationWarning`` or ``PendingDeprecationWarning``
 is attributed to the integration, or when Home Assistant logs a deprecation
 report that names the integration.

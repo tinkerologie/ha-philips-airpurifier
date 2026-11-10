@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
-from pytest_homeassistant_custom_component.common import MockConfigEntry
-
 from custom_components.philips_airpurifier import async_unload_entry
 from custom_components.philips_airpurifier.const import (
     CONF_DEVICE_ID,
@@ -15,9 +13,13 @@ from custom_components.philips_airpurifier.const import (
     CONF_UPDATE_WATCHDOG,
     DOMAIN,
 )
+from custom_components.philips_airpurifier.repairs import async_create_issue
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import CONF_HOST, CONF_NAME
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr, issue_registry as ir
+
+from tests.harness import MockConfigEntry
 
 
 async def test_setup_entry(
@@ -284,3 +286,30 @@ async def test_failed_first_refresh_closes_client(hass, mock_config_entry, mock_
         await hass.async_block_till_done()
     assert mock_config_entry.state is ConfigEntryState.SETUP_ERROR
     mock_coap_client.shutdown.assert_awaited_once()
+
+
+async def test_setup_registers_device_metadata(hass: HomeAssistant, init_integration: MockConfigEntry) -> None:
+    """Register the same metadata with the typed-dict and dataclass DeviceInfo APIs."""
+    entry = init_integration
+    (device,) = dr.async_entries_for_config_entry(dr.async_get(hass), entry.entry_id)
+    assert (DOMAIN, entry.data[CONF_DEVICE_ID]) in device.identifiers
+    assert device.manufacturer == "Philips"
+    assert device.model == entry.data[CONF_MODEL]
+    assert device.name == entry.data[CONF_NAME]
+
+
+async def test_remove_entry_cleans_up_scoped_repairs(hass: HomeAssistant, init_integration: MockConfigEntry) -> None:
+    """Remove this entry's repairs without removing another device's repairs."""
+    entry_id = init_integration.entry_id
+    own_repairs = [f"connectivity_issue_{entry_id}", f"filter_replacement_warning_{entry_id}"]
+    for issue_id in own_repairs:
+        async_create_issue(hass, issue_id, "test_issue", config_entry_id=entry_id)
+    other_issue_id = "filter_replacement_warning_other_entry"
+    async_create_issue(hass, other_issue_id, "test_issue")
+
+    await hass.config_entries.async_remove(entry_id)
+    await hass.async_block_till_done()
+
+    registry = ir.async_get(hass)
+    assert all(registry.async_get_issue(DOMAIN, issue_id) is None for issue_id in own_repairs)
+    assert registry.async_get_issue(DOMAIN, other_issue_id) is not None

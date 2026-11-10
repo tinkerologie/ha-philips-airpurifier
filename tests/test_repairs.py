@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from inspect import signature
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+import pytest
 
 from custom_components.philips_airpurifier.const import (
     CONF_STATUS,
@@ -24,8 +25,11 @@ from custom_components.philips_airpurifier.repairs import (
     async_delete_issue,
 )
 from homeassistant.components.repairs import ConfirmRepairFlow
+from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
+
+from tests.harness import MockConfigEntry
 
 
 async def test_create_fix_flow_connectivity(hass: HomeAssistant) -> None:
@@ -663,3 +667,97 @@ async def test_check_health_deletes_entity_registry_cleanup_issue_when_clean(
     registry = ir.async_get(hass)
     issue = registry.async_get_issue(DOMAIN, "entity_registry_cleanup")
     assert issue is None
+
+
+async def test_health_repairs_are_scoped_and_filter_acknowledgement_is_local(hass: HomeAssistant) -> None:
+    """Migrating legacy repairs and checking another device must preserve the owner's warning."""
+    unhealthy = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "192.0.2.10"})
+    healthy = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "192.0.2.11"})
+    unhealthy.add_to_hass(hass)
+    healthy.add_to_hass(hass)
+    async_create_issue(hass, "connectivity_issue", "connectivity_issue")
+    async_create_issue(hass, "filter_replacement_warning", "filter_replacement_warning")
+    coordinator = MagicMock(config_entry=unhealthy, client=None, data={"fltsts0": 1, "flttotal0": 100})
+    await async_check_integration_health(hass, coordinator)
+    await async_check_integration_health(
+        hass, MagicMock(config_entry=healthy, client=MagicMock(), data={"fltsts0": 100, "flttotal0": 100})
+    )
+
+    registry = ir.async_get(hass)
+    connectivity_id = f"connectivity_issue_{unhealthy.entry_id}"
+    filter_id = f"filter_replacement_warning_{unhealthy.entry_id}"
+    assert registry.async_get_issue(DOMAIN, "connectivity_issue") is None
+    assert registry.async_get_issue(DOMAIN, "filter_replacement_warning") is None
+    for issue_id in (connectivity_id, filter_id):
+        issue = registry.async_get_issue(DOMAIN, issue_id)
+        assert issue is not None
+        assert issue.data == {"entry_id": unhealthy.entry_id}
+        if "config_entry_id" in signature(ir.async_create_issue).parameters:
+            assert issue.config_entry_id == unhealthy.entry_id
+
+    connectivity_flow = await async_create_fix_flow(hass, connectivity_id, {"entry_id": unhealthy.entry_id})
+    assert isinstance(connectivity_flow, ConnectivityRepairFlow)
+    connectivity_flow.hass = hass
+    with patch("custom_components.philips_airpurifier.repairs.async_fetch_status", new_callable=AsyncMock) as fetch:
+        await connectivity_flow.async_step_init({})
+    assert fetch.await_args is not None
+    assert fetch.await_args.args == (unhealthy.data[CONF_HOST],)
+
+    flow = await async_create_fix_flow(hass, filter_id, {"entry_id": unhealthy.entry_id})
+    assert isinstance(flow, FilterReplacementWarningFlow)
+    flow.hass = hass
+    await flow.async_step_init({})
+
+    assert registry.async_get_issue(DOMAIN, filter_id) is None
+    assert unhealthy.options[OPT_FILTER_WARNING_ACK] is True
+    assert OPT_FILTER_WARNING_ACK not in healthy.options
+
+
+@pytest.mark.parametrize("owner_exists", [False, True], ids=["removed", "foreign-domain"])
+async def test_scoped_repairs_ignore_invalid_owners(hass: HomeAssistant, owner_exists: bool) -> None:
+    """A scoped repair cannot probe or acknowledge an unrelated entry."""
+    other = MockConfigEntry(domain="input_boolean", data={CONF_HOST: "192.0.2.10"})
+    if owner_exists:
+        other.add_to_hass(hass)
+    purifier = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "192.0.2.11"})
+    purifier.add_to_hass(hass)
+    healthy_issue_id = f"filter_replacement_warning_{purifier.entry_id}"
+    async_create_issue(hass, healthy_issue_id, "filter_replacement_warning")
+
+    owner_data = {"entry_id": other.entry_id}
+    connectivity = await async_create_fix_flow(hass, f"connectivity_issue_{other.entry_id}", owner_data)
+    connectivity.hass = hass
+    with patch("custom_components.philips_airpurifier.repairs.async_fetch_status", new_callable=AsyncMock) as fetch:
+        result = await connectivity.async_step_init({})
+    assert result["data"]["result"] == "no_config_entries_found"
+    fetch.assert_not_awaited()
+
+    warning = await async_create_fix_flow(hass, f"filter_replacement_warning_{other.entry_id}", owner_data)
+    warning.hass = hass
+    await warning.async_step_init({})
+
+    assert OPT_FILTER_WARNING_ACK not in other.options
+    assert OPT_FILTER_WARNING_ACK not in purifier.options
+    assert ir.async_get(hass).async_get_issue(DOMAIN, healthy_issue_id) is not None
+
+
+async def test_health_repairs_find_owning_entry_by_host(hass: HomeAssistant) -> None:
+    """When the coordinator has no entry, only a matching host owns the warning."""
+    first = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "192.0.2.10"})
+    second = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "192.0.2.11"})
+    first.add_to_hass(hass)
+    second.add_to_hass(hass)
+    coordinator = MagicMock(
+        config_entry=None,
+        host=second.data[CONF_HOST],
+        client=MagicMock(),
+        data={"fltsts0": 1, "flttotal0": 100},
+    )
+
+    await async_check_integration_health(hass, coordinator)
+
+    registry = ir.async_get(hass)
+    issue = registry.async_get_issue(DOMAIN, f"filter_replacement_warning_{second.entry_id}")
+    assert issue is not None
+    assert issue.data == {"entry_id": second.entry_id}
+    assert registry.async_get_issue(DOMAIN, f"filter_replacement_warning_{first.entry_id}") is None

@@ -8,7 +8,6 @@ import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.philips_airpurifier.const import DEFAULT_MISSED_PACKAGE_COUNT, DOMAIN
 from custom_components.philips_airpurifier.coordinator import (
@@ -22,6 +21,8 @@ from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from .const import MOCK_STATUS_GEN1, TEST_DEVICE_ID, TEST_HOST, TEST_MODEL, TEST_NAME
+
+from tests.harness import MockConfigEntry
 
 
 async def test_coordinator_data_available(
