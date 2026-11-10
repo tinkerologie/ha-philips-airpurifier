@@ -6,7 +6,7 @@ import asyncio
 from collections.abc import AsyncIterator
 import os
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 import warnings
 
 import pytest
@@ -142,6 +142,125 @@ async def test_async_fetch_status_with_nudge_observe_error_is_logged() -> None:
         await async_fetch_status_with_nudge("1.2.3.4", [("D03105", 0)])
 
     client.shutdown.assert_awaited()
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("resting_result", [True, False, None, RuntimeError("resting write failed")])
+async def test_nudge_snapshot_uses_only_the_acknowledged_resting_value(
+    resting_result: bool | None | Exception,
+) -> None:
+    """Publish an acknowledged restoration under the bare key without mutating the push."""
+    status = {"D03105": 0, "D03102": 1}
+    client = MagicMock()
+    client.observe_status.return_value = _aiter([status])
+    client.set_control_value = AsyncMock(side_effect=[True, resting_result])
+    client.shutdown = AsyncMock()
+
+    with patch(f"{_CLIENT}._NUDGE_REGISTER_DELAY", 0):
+        result = await async_fetch_status_with_nudge(
+            "1.2.3.4", [("D03105#2", 0), ("D03105#2", 115)], create_client=AsyncMock(return_value=client)
+        )
+
+    assert result == {"D03105": 115 if resting_result is True else 0, "D03102": 1}
+    assert status == {"D03105": 0, "D03102": 1}
+    assert client.set_control_value.await_args_list == [call("D03105#2", 0), call("D03105#2", 115)]
+    client.shutdown.assert_awaited_once()
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(("stalled_value", "expected"), [(0, 115), (115, 0)])
+async def test_nudge_write_timeout_preserves_restoration(
+    monkeypatch: pytest.MonkeyPatch, stalled_value: int, expected: int
+) -> None:
+    """A stalled write neither prevents restoration nor counts as an acknowledgement."""
+    import custom_components.philips_airpurifier.client as client_module
+
+    never = asyncio.Event()
+
+    async def write(_key: str, value: int) -> bool:
+        if value == stalled_value:
+            await never.wait()
+        return True
+
+    client = MagicMock()
+    client.observe_status.return_value = _aiter([{"D03105": 0}])
+    client.set_control_value = AsyncMock(side_effect=write)
+    client.shutdown = AsyncMock()
+    monkeypatch.setattr(client_module, "_NUDGE_WRITE_TIMEOUT", 0.01, raising=False)
+    monkeypatch.setattr(client_module, "_NUDGE_REGISTER_DELAY", 0)
+
+    result = await asyncio.wait_for(
+        async_fetch_status_with_nudge(
+            "1.2.3.4", [("D03105", 0), ("D03105", 115)], create_client=AsyncMock(return_value=client)
+        ),
+        timeout=1,
+    )
+
+    assert result["D03105"] == expected
+    assert client.set_control_value.await_args_list == [call("D03105", 0), call("D03105", 115)]
+    client.shutdown.assert_awaited_once()
+
+
+@pytest.mark.unit
+async def test_nudge_exhausts_attempts_when_writes_stall_without_a_push(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A lost write cannot wedge setup or keep the temporary client open."""
+    import custom_components.philips_airpurifier.client as client_module
+
+    never = asyncio.Event()
+
+    async def write(_key: str, _value: int) -> None:
+        await never.wait()
+
+    client = MagicMock()
+    client.observe_status.return_value = _aiter([])
+    client.set_control_value = AsyncMock(side_effect=write)
+    client.shutdown = AsyncMock()
+    monkeypatch.setattr(client_module, "_NUDGE_WRITE_TIMEOUT", 0.01, raising=False)
+    monkeypatch.setattr(client_module, "_NUDGE_WAIT_TIMEOUT", 0.01)
+    monkeypatch.setattr(client_module, "_NUDGE_REGISTER_DELAY", 0)
+
+    with pytest.raises(TimeoutError, match="no status push from 1.2.3.4 after 2 nudge attempts"):
+        await asyncio.wait_for(
+            async_fetch_status_with_nudge(
+                "1.2.3.4", [("D03105", 0), ("D03105", 115)], create_client=AsyncMock(return_value=client)
+            ),
+            timeout=1,
+        )
+
+    assert client.set_control_value.await_args_list == [call("D03105", 0), call("D03105", 115)] * 2
+    client.shutdown.assert_awaited_once()
+
+
+@pytest.mark.unit
+async def test_nudge_does_not_reuse_an_earlier_restoration_acknowledgement() -> None:
+    """A failed restoration on the successful attempt leaves the snapshot as observed."""
+    push_ready = asyncio.Event()
+    writes = 0
+
+    async def observe() -> AsyncIterator[dict[str, int]]:
+        await push_ready.wait()
+        yield {"D03105": 0}
+
+    async def write(_key: str, _value: int) -> bool:
+        nonlocal writes
+        writes += 1
+        if writes == 4:
+            push_ready.set()
+            return False
+        return True
+
+    client = MagicMock()
+    client.observe_status.return_value = observe()
+    client.set_control_value = AsyncMock(side_effect=write)
+    client.shutdown = AsyncMock()
+
+    with patch(f"{_CLIENT}._NUDGE_REGISTER_DELAY", 0), patch(f"{_CLIENT}._NUDGE_WAIT_TIMEOUT", 0.01):
+        result = await async_fetch_status_with_nudge(
+            "1.2.3.4", [("D03105", 0), ("D03105", 115)], create_client=AsyncMock(return_value=client)
+        )
+
+    assert result == {"D03105": 0}
+    assert writes == 4
 
 
 @pytest.fixture(autouse=True)

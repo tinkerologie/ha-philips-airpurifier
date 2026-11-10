@@ -16,7 +16,8 @@ _LOGGER = logging.getLogger(__name__)
 
 # Delay before nudging, to let the observation register on the device.
 _NUDGE_REGISTER_DELAY = 2.0
-# How long to wait for a push after each nudge, and how many times to nudge.
+# Bound each control write, then wait for a push before retrying the nudge.
+_NUDGE_WRITE_TIMEOUT = 5.0
 _NUDGE_WAIT_TIMEOUT = 12.0
 _NUDGE_ATTEMPTS = 2
 _AIOCOAP_CLIENT_TRANSPORT_ENV = "AIOCOAP_CLIENT_TRANSPORT"
@@ -163,7 +164,9 @@ async def async_fetch_status_with_nudge(
     Some firmwares never answer a status read; they only push the status
     resource to observers when the device state changes. This opens an
     observation and sends ``nudge`` control writes on the *same* CoAP client to
-    force the first push, then returns that status.
+    force the first push. Each write has its own deadline. If the client
+    acknowledges the final write, the returned snapshot reflects that restored
+    value under the bare status key, even if the first push was transient.
 
     A single client is used for both the observation and the nudge writes:
     these firmwares appear to serve only one CoAP client, so a second
@@ -191,16 +194,21 @@ async def async_fetch_status_with_nudge(
         # Let the observation register on the device before changing state.
         await asyncio.sleep(_NUDGE_REGISTER_DELAY)
         for attempt in range(1, _NUDGE_ATTEMPTS + 1):
+            resting_write_acknowledged = False
             for key, value in nudge:
                 try:
-                    await client.set_control_value(key, value)
+                    async with asyncio.timeout(_NUDGE_WRITE_TIMEOUT):
+                        acknowledged = await client.set_control_value(key, value)
+                    resting_write_acknowledged = acknowledged is True
                 except Exception as ex:  # noqa: BLE001
+                    resting_write_acknowledged = False
                     _LOGGER.debug(
-                        "Nudge: write %s=%s failed on attempt %d for %s: %s",
+                        "Nudge: write %s=%s failed on attempt %d for %s (%s: %s)",
                         key,
                         value,
                         attempt,
                         host,
+                        type(ex).__name__,
                         ex,
                     )
             _LOGGER.debug("Nudge: attempt %d/%d sent to %s, awaiting push", attempt, _NUDGE_ATTEMPTS, host)
@@ -208,6 +216,9 @@ async def async_fetch_status_with_nudge(
                 await asyncio.wait_for(received.wait(), timeout=_NUDGE_WAIT_TIMEOUT)
             if received.is_set():
                 _LOGGER.debug("Nudge: push received from %s on attempt %d", host, attempt)
+                if resting_write_acknowledged:
+                    key, value = nudge[-1]
+                    return {**result["status"], key.partition("#")[0]: value}
                 return result["status"]
             _LOGGER.debug("Nudge: no push from %s after attempt %d/%d", host, attempt, _NUDGE_ATTEMPTS)
         msg = f"no status push from {host} after {_NUDGE_ATTEMPTS} nudge attempts"

@@ -19,6 +19,8 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 - CX5120 heaters with firmware 0.4.9 (`AWS_Philips_AIR@86.1`) never answer a status read and
   only push on a real state change, so setup timed out. The CX5120 now declares a status nudge
   that toggles the display backlight (`D03105`) to elicit the first status push (#203).
+- Push-only status nudges time out stalled control writes and publish the acknowledged
+  restored backlight value when the first device push still shows the transient value (#197).
 
 ### Security
 

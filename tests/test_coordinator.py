@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncIterator
 from contextlib import suppress
 import logging
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -739,6 +740,81 @@ async def test_first_refresh_via_nudge_failure(hass: HomeAssistant) -> None:
         pytest.raises(ConfigEntryNotReady),
     ):
         await coordinator.async_first_refresh_and_observe()
+
+
+@pytest.mark.unit
+async def test_reconnect_publishes_acknowledged_nudge_restoration(hass: HomeAssistant) -> None:
+    """A reconnect publishes the restored value, even if the first push was transient."""
+    coordinator = _make_coordinator(hass, model="CX7550")
+    transient = {**_CX_STATUS, "D03105": 0}
+
+    async def observe() -> AsyncIterator[dict[str, str | int]]:
+        yield transient
+
+    temporary = MagicMock()
+    temporary.observe_status.return_value = observe()
+    temporary.set_control_value = AsyncMock(return_value=True)
+    temporary.shutdown = AsyncMock()
+    replacement = AsyncMock()
+
+    with (
+        patch(f"{_COORD}.CoAPClient.create", AsyncMock(side_effect=[temporary, replacement])),
+        patch("custom_components.philips_airpurifier.client._NUDGE_REGISTER_DELAY", 0),
+        patch.object(coordinator, "_start_observing"),
+    ):
+        await coordinator._do_reconnect()
+
+    assert coordinator.data == {**_CX_STATUS, "D03105": 115}
+    assert coordinator.nudge_resting_values == {}
+    assert transient["D03105"] == 0
+    assert coordinator.client is replacement
+    temporary.shutdown.assert_awaited_once()
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("initial_refresh", [True, False], ids=["setup", "reconnect"])
+async def test_stalled_nudge_writes_fail_setup_or_back_off_reconnect(
+    hass: HomeAssistant, initial_refresh: bool
+) -> None:
+    """An unreachable push-only device leaves setup or reconnect within the nudge deadline."""
+    coordinator = _make_coordinator(hass, model="CX7550")
+    never = asyncio.Event()
+
+    async def observe() -> AsyncIterator[dict[str, int]]:
+        await never.wait()
+        yield {"D03105": 0}
+
+    async def write(_key: str, _value: int) -> None:
+        await never.wait()
+
+    temporary = MagicMock()
+    temporary.observe_status.return_value = observe()
+    temporary.set_control_value = AsyncMock(side_effect=write)
+    temporary.shutdown = AsyncMock()
+    client_module = "custom_components.philips_airpurifier.client"
+
+    with (
+        patch(f"{_COORD}.CoAPClient.create", AsyncMock(return_value=temporary)) as create,
+        patch(f"{client_module}._NUDGE_REGISTER_DELAY", 0),
+        patch(f"{client_module}._NUDGE_WRITE_TIMEOUT", 0.01),
+        patch(f"{client_module}._NUDGE_WAIT_TIMEOUT", 0.01),
+        patch.object(coordinator, "_schedule_reconnect_retry") as retry,
+        patch.object(coordinator, "_start_observing") as start,
+    ):
+        if initial_refresh:
+            with pytest.raises(ConfigEntryNotReady) as error:
+                await asyncio.wait_for(coordinator.async_first_refresh_and_observe(), timeout=1)
+            assert isinstance(error.value.__cause__, TimeoutError)
+            retry.assert_not_called()
+        else:
+            await asyncio.wait_for(coordinator._do_reconnect(), timeout=1)
+            retry.assert_called_once_with(RECONNECT_INITIAL_DELAY)
+            assert coordinator._reconnect_delay == RECONNECT_INITIAL_DELAY * 2
+            assert not coordinator.last_update_success
+
+    start.assert_not_called()
+    create.assert_awaited_once()
+    temporary.shutdown.assert_awaited_once()
 
 
 @pytest.mark.unit
