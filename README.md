@@ -17,14 +17,24 @@ Control compatible Philips air purifiers, humidifiers, fans, and heaters from Ho
 
 You need **Home Assistant 2026.9.0 or later** and a [supported Philips device](#supported-devices) that Home Assistant can reach over your local network. Some firmware versions disable local CoAP or stop responding to it intermittently. If local control is a purchase requirement, verify the firmware or buy from a seller with a return policy.
 
-### Install with HACS
+### Install from Marketplace
 
-[![Open Philips AirPurifier in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=tinkerologie&repository=ha-philips-airpurifier&category=integration)
+[Marketplace](https://www.home-assistant.io/integrations/marketplace/) is built into Home Assistant 2026.11 and later. Existing HACS installations migrate automatically when you upgrade. For Home Assistant 2026.9 or 2026.10, see [manual installation](#install-manually).
 
-1. Open **Philips AirPurifier** in HACS.
-2. Select **Download**.
-3. Restart Home Assistant.
-4. [Add your device](#configuration).
+<!-- ha-marketplace:exclude-start -->
+
+[![Open Philips AirPurifier in Home Assistant Marketplace](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=tinkerologie&repository=ha-philips-airpurifier&category=integration)
+
+<!-- ha-marketplace:exclude-end -->
+
+1. Open **Settings → Marketplace**.
+2. Search for **Philips AirPurifier**.
+3. Select **Philips AirPurifier**.
+4. Select **Install**.
+5. Confirm the installation.
+6. Follow the setup instructions on the screen.
+
+If you close the setup screen, [add your device](#configuration) from **Devices & services**. If Home Assistant shows a restart repair, follow its instructions.
 
 ### Install manually
 
