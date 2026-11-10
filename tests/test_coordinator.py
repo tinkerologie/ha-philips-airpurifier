@@ -1795,7 +1795,7 @@ async def test_cancelled_shutdown_propagates_and_leaves_client_unrecorded(
     coordinator = _make_coordinator(hass)
     started = asyncio.Event()
 
-    async def slow_shutdown():
+    async def slow_shutdown() -> None:
         started.set()
         await asyncio.sleep(60)
 

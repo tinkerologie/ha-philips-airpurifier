@@ -334,7 +334,12 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 return
             task = self._shutdown_task
             if task is None or self._shutdown_client is not client:
-                task = self.hass.async_create_task(client.shutdown())
+                # A background task, so a shutdown that hangs past the timeout
+                # is not a tracked task Home Assistant waits for at bootstrap.
+                task = self.hass.async_create_background_task(
+                    client.shutdown(),
+                    f"philips_airpurifier_shutdown_{self.host}",
+                )
                 self._shutdown_task = task
                 self._shutdown_client = client
             # asyncio.wait never cancels the shutdown on timeout and never
