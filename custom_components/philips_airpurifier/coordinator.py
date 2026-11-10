@@ -402,7 +402,14 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         first_push_check = loop.call_later(COAP_CALL_TIMEOUT, self._check_first_push, generation)
         reconnect = True
         try:
-            async for status in self.client.observe_status():
+            # Push-only firmware (CX5120 0.4.9) never answers the observe
+            # renewal GET. philips-airctrl 1.4.0 renews every Max-Age (60 s) and
+            # gives up after 10 s, so every renewal became a reconnect plus a
+            # display nudge: a beep each minute, and the CX5120 CoAP stack
+            # stalled after a few dozen rounds. Renew only as often as the nudge
+            # watchdog runs.
+            renew_interval = NUDGE_WATCHDOG_TIMEOUT if self._status_nudge_enabled else None
+            async for status in self.client.observe_status(renew_interval=renew_interval):
                 now = loop.time()
                 if generation == self._observe_generation:
                     self._session_pushes += 1

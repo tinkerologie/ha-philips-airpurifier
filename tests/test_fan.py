@@ -470,6 +470,21 @@ async def test_fan_oscillate_branches() -> None:
     coordinator.async_set_control_value.assert_awaited_with("D0320F", 0)
 
 
+async def test_fan_oscillate_cx5120() -> None:
+    """CX5120 starts swinging on 17222 and then reports 17920, which reads as oscillating."""
+    entity, coordinator = _make_fan_entity(
+        "CX5120",
+        {"D03102": 1, "D0310A": 3, "D0310C": 0, "D0320F": 0},
+    )
+    entity._handle_coordinator_update = lambda: None
+
+    await entity.async_oscillate(True)
+    coordinator.async_set_control_value.assert_awaited_with("D0320F", 17222)
+
+    entity._device_status["D0320F"] = 17920
+    assert entity.oscillating is True
+
+
 async def test_fan_oscillate_noop_without_oscillation() -> None:
     """Test oscillate is a no-op when model has no oscillation map."""
     entity, coordinator = _make_fan_entity("AC3858/51", {"pwr": "1", "mode": "AG", "om": "a"})

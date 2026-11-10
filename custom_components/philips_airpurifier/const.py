@@ -400,6 +400,12 @@ class PhilipsApi:
         SWITCH_ON: 80,
         SWITCH_OFF: 0,
     }
+    # CX5120: the device starts swinging on 17222 and then reports 17920.
+    # It ignores 17242 from OSCILLATION_MAP2.
+    OSCILLATION_MAP_CX5120 = {
+        SWITCH_ON: 17222,
+        SWITCH_OFF: 0,
+    }
     # The AMF family (AMF765, AMF870) stores the rotation angle itself in
     # D0320F: 0 is off, 30..350 is the oscillation angle in degrees. The "on"
     # value below is only the fallback used when no angle has been observed

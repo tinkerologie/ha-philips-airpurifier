@@ -7,6 +7,15 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 
 ## [Unreleased]
 
+### Fixed
+
+- CX5120 heaters with firmware 0.4.9 never answer the observation renewal, so the 60 s
+  renewal of philips-airctrl turned into a reconnect and a display nudge every minute (a
+  beep each time) until the device's CoAP stack stalled. Push-only models now renew the
+  observation only at the nudge watchdog interval (30 min).
+- CX5120 swing now writes 17222, which the device accepts (it then reports 17920), instead of
+  17242 from `OSCILLATION_MAP2`, which it ignores.
+
 ## [2026.11.0] - 2026-11-10
 
 ### Changed
