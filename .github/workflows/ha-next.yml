@@ -117,7 +117,9 @@ jobs:
           REQUIREMENT: ${{ steps.resolve.outputs.requirement }}
         run: |
           mapfile -t integration_requirements < <(jq -r '.requirements[]' custom_components/philips_airpurifier/manifest.json)
-          uv pip install "$REQUIREMENT" "${integration_requirements[@]}" infrared-protocols tqdm ruff
+          # Test Core's published dependency graph in this scratch environment.
+          # The development lock has its own overrides for local tooling.
+          uv --no-config pip install "$REQUIREMENT" "${integration_requirements[@]}" infrared-protocols tqdm ruff
           python -c "from homeassistant.const import __version__; print('Installed Home Assistant', __version__)"
 
       - name: Install the matching official pytest plugin
@@ -150,7 +152,7 @@ jobs:
           fi
           # Resolve the plugin dependencies alongside the exact release or commit
           # already installed, so the plugin cannot silently change Core.
-          uv pip install "$REQUIREMENT" "$plugin"
+          uv --no-config pip install "$REQUIREMENT" "$plugin"
           uv pip check
           echo "state=installed" >> "$GITHUB_OUTPUT"
 
