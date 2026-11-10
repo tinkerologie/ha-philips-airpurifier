@@ -163,7 +163,7 @@ async def test_nudge_snapshot_uses_only_the_acknowledged_resting_value(
 
     assert result == {"D03105": 115 if resting_result is True else 0, "D03102": 1}
     assert status == {"D03105": 0, "D03102": 1}
-    assert client.set_control_value.await_args_list == [call("D03105#2", 0), call("D03105#2", 115)]
+    assert client.set_control_value.await_args_list == [call("D03105", 0), call("D03105", 115)]
     client.shutdown.assert_awaited_once()
 
 

@@ -195,7 +195,8 @@ async def async_fetch_status_with_nudge(
         await asyncio.sleep(_NUDGE_REGISTER_DELAY)
         for attempt in range(1, _NUDGE_ATTEMPTS + 1):
             resting_write_acknowledged = False
-            for key, value in nudge:
+            for nudge_key, value in nudge:
+                key = nudge_key.partition("#")[0]
                 try:
                     async with asyncio.timeout(_NUDGE_WRITE_TIMEOUT):
                         acknowledged = await client.set_control_value(key, value)
