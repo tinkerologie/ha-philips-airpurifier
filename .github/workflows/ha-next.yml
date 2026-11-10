@@ -331,6 +331,9 @@ jobs:
               ].join("\n");
 
               if (issue) {
+                if (issue.title !== title) {
+                  await github.rest.issues.update({ owner, repo, issue_number: issue.number, title });
+                }
                 await github.rest.issues.createComment({
                   owner,
                   repo,

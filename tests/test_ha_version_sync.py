@@ -1,5 +1,7 @@
 """Tests for the HA development and minimum environment contracts."""
 
+from functools import partial
+from importlib.metadata import PackageNotFoundError
 import json
 from pathlib import Path
 import runpy
@@ -62,6 +64,14 @@ def test_ha_version_sync(tmp_path: Path, case: str, message: str) -> None:
     assert message in result.stdout + result.stderr
 
 
+def _installed_version(installed: dict[str, str], name: str) -> str:
+    """Match importlib.metadata.version for missing distributions."""
+    try:
+        return installed[name]
+    except KeyError:
+        raise PackageNotFoundError(name) from None
+
+
 @pytest.mark.parametrize(
     ("installed", "message"),
     [
@@ -72,7 +82,24 @@ def test_ha_version_sync(tmp_path: Path, case: str, message: str) -> None:
 def test_minimum_environment_rejects_mismatched_packages(installed: dict[str, str], message: str) -> None:
     """Stop before pytest starts when the minimum environment is invalid."""
     with (
-        patch("importlib.metadata.version", side_effect=installed.__getitem__),
+        patch("importlib.metadata.version", side_effect=partial(_installed_version, installed)),
         pytest.raises(SystemExit, match=message),
     ):
         runpy.run_path(str(ROOT / "script/.lib/test_minimum.py"))
+
+
+def test_minimum_environment_runs_legacy_suite_without_official_plugin() -> None:
+    """Run coverage-enabled tests when the minimum environment is valid."""
+    installed = {"homeassistant": FLOOR, LEGACY: "0.13.363"}
+    with (
+        patch("importlib.metadata.version", side_effect=partial(_installed_version, installed)),
+        patch("subprocess.run") as check_dependencies,
+        patch("pytest.main", return_value=0) as run_tests,
+        pytest.raises(SystemExit) as result,
+    ):
+        runpy.run_path(str(ROOT / "script/.lib/test_minimum.py"))
+
+    assert result.value.code == 0
+    check_dependencies.assert_called_once()
+    run_tests.assert_called_once()
+    assert "--cov=custom_components/philips_airpurifier" in run_tests.call_args.args[0]
