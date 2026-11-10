@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
+from collections.abc import AsyncIterator
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
@@ -174,6 +175,42 @@ async def test_user_flow_status_nudge_fallback(
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"][CONF_MODEL] == "CX7550"
+
+
+@pytest.mark.integration
+async def test_cx5120_setup_after_status_timeout(
+    hass: HomeAssistant,
+    mock_coap_client_config_flow: AsyncMock,
+) -> None:
+    """Set up a CX5120/11 using a push from its existing backlight control."""
+    status = {
+        PhilipsApi.NEW2_MODEL_ID: "CX5120/11",
+        PhilipsApi.NEW2_NAME: "Philips heater",
+        PhilipsApi.DEVICE_ID: TEST_DEVICE_ID,
+        PhilipsApi.WIFI_VERSION: "AWS_Philips_AIR@86.1",
+        PhilipsApi.NEW2_POWER: 1,
+    }
+
+    async def observe() -> AsyncIterator[dict[str, str | int]]:
+        yield status
+
+    client = mock_coap_client_config_flow
+    client.get_status.side_effect = TimeoutError
+    client.get_device_info = AsyncMock(return_value={"modelid": "CX5120/11", "name": "Philips heater"})
+    client.observe_status = MagicMock(side_effect=observe)
+    client.set_control_value.return_value = True
+
+    with (
+        patch("custom_components.philips_airpurifier.client.CoAPClient.create", AsyncMock(return_value=client)),
+        patch("custom_components.philips_airpurifier.client._NUDGE_REGISTER_DELAY", 0),
+    ):
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], user_input={CONF_HOST: TEST_HOST})
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_MODEL] == "CX5120"
+    client.get_device_info.assert_awaited_once()
+    assert client.set_control_value.await_args_list[:2] == [call("D03105", 0), call("D03105", 100)]
 
 
 async def test_user_flow_status_nudge_fallback_hu1509(

@@ -832,12 +832,13 @@ def test_build_status_nudge_restores_display_off(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.unit
-def test_build_status_nudge_restores_custom_brightness(hass: HomeAssistant) -> None:
+@pytest.mark.parametrize(("model", "brightness"), [("CX7550", 123), ("CX5120", 47)])
+def test_build_status_nudge_restores_custom_brightness(hass: HomeAssistant, model: str, brightness: int) -> None:
     """The nudge ends on whatever backlight value was last observed."""
-    coordinator = _make_coordinator(hass, model="CX7550")
-    coordinator.async_set_updated_data({**_CX_STATUS, "D03105": 123})
+    coordinator = _make_coordinator(hass, model=model)
+    coordinator.async_set_updated_data({"D03105": brightness})
 
-    assert coordinator._build_status_nudge() == [("D03105", 0), ("D03105", 123)]
+    assert coordinator._build_status_nudge() == [("D03105", 0), ("D03105", brightness)]
 
 
 @pytest.mark.unit
