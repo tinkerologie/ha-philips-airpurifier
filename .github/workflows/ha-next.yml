@@ -111,30 +111,48 @@ jobs:
             echo "hassfest_ref="
           } >> "$GITHUB_OUTPUT"
 
-      - name: Install Home Assistant and the test harness
+      - name: Install Home Assistant
         id: install
         env:
-          CHANNEL: ${{ matrix.channel }}
-          HA_VERSION: ${{ steps.resolve.outputs.ha_version }}
           REQUIREMENT: ${{ steps.resolve.outputs.requirement }}
         run: |
-          # pytest-homeassistant-custom-component pins one Home Assistant version
-          # and often lags a beta by days; it never matches Core dev. Without a
-          # match, run only the import smoke test. The harness and pytest floors
-          # stop the resolver from falling back to an ancient harness release
-          # that pins whatever Home Assistant is requested.
           mapfile -t integration_requirements < <(jq -r '.requirements[]' custom_components/philips_airpurifier/manifest.json)
-          # Hassfest imports tqdm and ruff (packages/hassfest) and, for its device-class validator,
-          # infrared-protocols; without the harness nothing else installs them.
-          if [[ "$CHANNEL" == release ]] && uv pip install "$REQUIREMENT" "${integration_requirements[@]}" infrared-protocols tqdm ruff \
-            "pytest-homeassistant-custom-component>=0.13" "pytest>=8.0.0" "pytest-asyncio>=0.23.0" "pytest-cov>=4.0.0"; then
-            echo "harness=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::notice::No pytest-homeassistant-custom-component release installs with Home Assistant $HA_VERSION; running the import smoke test only"
-            echo "harness=false" >> "$GITHUB_OUTPUT"
-            uv pip install "$REQUIREMENT" "${integration_requirements[@]}" infrared-protocols tqdm ruff
-          fi
+          uv pip install "$REQUIREMENT" "${integration_requirements[@]}" infrared-protocols tqdm ruff
           python -c "from homeassistant.const import __version__; print('Installed Home Assistant', __version__)"
+
+      - name: Install the matching official pytest plugin
+        id: harness
+        env:
+          HA_VERSION: ${{ steps.resolve.outputs.ha_version }}
+          REQUIREMENT: ${{ steps.resolve.outputs.requirement }}
+          CORE_REVISION: ${{ steps.resolve.outputs.hassfest_ref }}
+        run: |
+          echo "state=failed" >> "$GITHUB_OUTPUT"
+          package=pytest-homeassistant
+          ref="${CORE_REVISION:-$HA_VERSION}"
+          plugin=""
+          if [[ -z "$CORE_REVISION" ]]; then
+            status=$(curl -sSL --retry 3 -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/$package/$HA_VERSION/json")
+            case "$status" in
+              200) plugin="$package==$HA_VERSION" ;;
+              404) ;;
+              *) echo "::error::PyPI lookup for $package returned HTTP $status"; exit 1 ;;
+            esac
+          fi
+          if [[ -z "$plugin" ]]; then
+            directory="packages/$package"
+            status=$(curl -sSL --retry 3 -o /dev/null -w '%{http_code}' "https://raw.githubusercontent.com/home-assistant/core/$ref/$directory/pyproject.toml")
+            case "$status" in
+              200) plugin="$package @ https://github.com/home-assistant/core/archive/$ref.tar.gz#subdirectory=$directory" ;;
+              404) echo "state=unavailable" >> "$GITHUB_OUTPUT"; exit 0 ;;
+              *) echo "::error::Core plugin lookup returned HTTP $status"; exit 1 ;;
+            esac
+          fi
+          # Resolve the plugin dependencies alongside the exact release or commit
+          # already installed, so the plugin cannot silently change Core.
+          uv pip install "$REQUIREMENT" "$plugin"
+          uv pip check
+          echo "state=installed" >> "$GITHUB_OUTPUT"
 
       - name: Import every module and check for deprecations
         id: smoke
@@ -143,7 +161,7 @@ jobs:
 
       - name: Run tests with deprecation checks
         id: tests
-        if: steps.install.outputs.harness == 'true'
+        if: steps.harness.outputs.state == 'installed'
         continue-on-error: true
         run: pytest --no-cov -q
 
@@ -162,31 +180,33 @@ jobs:
           CHANNEL: ${{ matrix.channel }}
           HA_VERSION: ${{ steps.resolve.outputs.ha_version }}
           INSTALL: ${{ steps.install.outcome }}
-          HARNESS: ${{ steps.install.outputs.harness }}
+          RESOLVE: ${{ steps.resolve.outcome }}
+          HARNESS: ${{ steps.harness.outputs.state }}
           SMOKE: ${{ steps.smoke.outcome }}
           TESTS: ${{ steps.tests.outcome }}
           HASSFEST: ${{ steps.hassfest.outcome }}
-          JOB_STATUS: ${{ job.status }}
         run: |
-          # A check that never ran fails too: a step that stops the job, such as
-          # resolving the version, skips every check after it. Only the tests
-          # may be skipped, and only when no matching harness exists.
           status=success
-          if [[ "$JOB_STATUS" != success ]]; then
+          reason=""
+          if [[ "$RESOLVE" != success ]]; then
+            reason=resolution
+          elif [[ "$INSTALL" != success ]]; then
+            reason=install
+          elif [[ "$HARNESS" != installed && "$HARNESS" != unavailable ]]; then
+            reason=harness
+          elif [[ "$SMOKE" != success ]]; then
+            reason=smoke
+          elif [[ "$HARNESS" == installed && "$TESTS" != success ]]; then
+            reason=tests
+          elif [[ "$HASSFEST" != success ]]; then
+            reason=hassfest
+          fi
+          if [[ -n "$reason" ]]; then
             status=failure
           fi
-          for outcome in "$INSTALL" "$SMOKE" "$HASSFEST"; do
-            if [[ "$outcome" != success ]]; then
-              status=failure
-            fi
-          done
-          if [[ "$HARNESS" == true && "$TESTS" != success ]]; then
-            status=failure
-          fi
-          if [[ "$HARNESS" == true ]]; then
-            tests="$TESTS"
-          else
-            tests="skipped: no pytest-homeassistant-custom-component for this version"
+          tests="$TESTS"
+          if [[ "$HARNESS" == unavailable ]]; then
+            tests="skipped: no matching official pytest plugin"
           fi
           {
             echo "## Home Assistant ${HA_VERSION:-unresolved}"
@@ -195,14 +215,16 @@ jobs:
             echo "| --- | --- |"
             echo "| Install | ${INSTALL:-not run} |"
             echo "| Import smoke | ${SMOKE:-not run} |"
+            echo "| Pytest plugin | ${HARNESS:-not run} |"
             echo "| Tests | ${tests:-not run} |"
             echo "| Hassfest | ${HASSFEST:-not run} |"
           } >> "$GITHUB_STEP_SUMMARY"
           mkdir -p ha-next-result
           jq -n --arg channel "$CHANNEL" --arg version "${HA_VERSION:-unresolved}" --arg status "$status" \
-            '{channel: $channel, version: $version, status: $status}' > "ha-next-result/$CHANNEL.json"
+            --arg harness "${HARNESS:-not run}" --arg reason "$reason" \
+            '{channel: $channel, version: $version, status: $status, harness: $harness, reason: $reason}' > "ha-next-result/$CHANNEL.json"
           if [[ "$status" == failure ]]; then
-            echo "::error::Home Assistant ${HA_VERSION:-unresolved} breaks or deprecates something the integration uses"
+            echo "::error::Home Assistant ${HA_VERSION:-unresolved} check failed at $reason"
             exit 1
           fi
 
@@ -258,10 +280,15 @@ jobs:
               per_page: 50,
             });
 
-            for (const [channel, title] of Object.entries(channels)) {
-              let result = { version: "unresolved", status: "failure" };
+            for (const [channel, compatibilityTitle] of Object.entries(channels)) {
+              let result = { version: "unresolved", status: "failure", harness: "not run", reason: "resolution" };
               try {
-                result = JSON.parse(fs.readFileSync(`ha-next-result/${channel}.json`, "utf8"));
+                const parsed = JSON.parse(fs.readFileSync(`ha-next-result/${channel}.json`, "utf8"));
+                if (parsed.channel === channel && ["success", "failure"].includes(parsed.status)
+                  && typeof parsed.version === "string" && typeof parsed.harness === "string"
+                  && typeof parsed.reason === "string") {
+                  result = parsed;
+                }
               } catch {
                 // No result means the job stopped before its summary step.
               }
@@ -287,13 +314,17 @@ jobs:
                 continue;
               }
 
+              const title = ["smoke", "tests", "hassfest"].includes(result.reason)
+                ? compatibilityTitle
+                : "Home Assistant " + channel + " compatibility check could not run";
               const body = [
                 marker,
                 `The HA Next workflow failed on the ${channel} channel against Home Assistant ${result.version}.`,
                 "",
                 `Run log: ${runUrl}`,
                 "",
-                "See the run summary for which check failed (install, import smoke, tests or Hassfest),",
+                "Stage: " + result.reason + ". Pytest plugin: " + result.harness + ".",
+                "See the run summary for details",
                 "and the deprecation section of `CONTRIBUTING.md` for what to do.",
               ].join("\n");
 

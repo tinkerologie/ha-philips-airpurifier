@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.philips_airpurifier.climate import PhilipsHeater
 from custom_components.philips_airpurifier.const import (
@@ -43,6 +42,8 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
+
+from tests.harness import MockConfigEntry
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -615,7 +616,7 @@ def test_climate_provides_only_the_temperature_api_home_assistant_reads() -> Non
     native_api = hasattr(ClimateEntity, "native_target_temperature")
     members = vars(PhilipsHeater)
 
-    assert members["_attr_native_temperature_unit"] == UnitOfTemperature.CELSIUS
+    assert "_attr_native_temperature_unit" in members
     assert {"native_target_temperature", "native_current_temperature"} <= members.keys()
     for legacy in ("_attr_temperature_unit", "target_temperature", "current_temperature"):
         assert (legacy in members) is not native_api

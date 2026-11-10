@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from pytest_homeassistant_custom_component.common import MockConfigEntry
-
 from custom_components.philips_airpurifier.diagnostics import (
     async_get_config_entry_diagnostics,
 )
@@ -13,6 +11,8 @@ from homeassistant.components.diagnostics import REDACTED
 from homeassistant.core import HomeAssistant
 
 from .const import TEST_DEVICE_ID, TEST_HOST, TEST_MODEL
+
+from tests.harness import MockConfigEntry
 
 
 async def test_diagnostics_data_structure(

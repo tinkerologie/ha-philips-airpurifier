@@ -98,12 +98,12 @@ class PhilipsHeater(PhilipsAirPurifierEntity, ClimateEntity):  # pyright: ignore
             self._oscillation_modes = None
 
     @property
-    def native_target_temperature(self) -> float | None:
+    def native_target_temperature(self) -> float | None:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the target temperature."""
         return self._device_status.get(self._temperature_target_key)
 
     @property
-    def native_current_temperature(self) -> float | None:
+    def native_current_temperature(self) -> float | None:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the current temperature, reported in tenths of a degree."""
         value = self._device_status.get(self._current_temperature_key)
         if isinstance(value, int | float):
@@ -111,16 +111,16 @@ class PhilipsHeater(PhilipsAirPurifierEntity, ClimateEntity):  # pyright: ignore
         return None
 
     # Delete this block once the minimum Home Assistant version is 2026.11.
-    if not _HAS_NATIVE_TEMPERATURE_API:  # pragma: no cover
+    if not TYPE_CHECKING and not _HAS_NATIVE_TEMPERATURE_API:  # pragma: no cover
         _attr_temperature_unit: str = UnitOfTemperature.CELSIUS
 
         @property
-        def target_temperature(self) -> float | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+        def target_temperature(self) -> float | None:
             """Return the target temperature."""
             return self.native_target_temperature
 
         @property
-        def current_temperature(self) -> float | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+        def current_temperature(self) -> float | None:
             """Return the current temperature."""
             return self.native_current_temperature
 

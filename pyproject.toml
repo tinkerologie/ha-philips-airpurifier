@@ -14,6 +14,7 @@ dev = [
     "pytest-asyncio",
     "pytest-cov",
     "infrared-protocols",  # Imported by the current hassfest device-class validator.
+    "tqdm",  # Imported by Hassfest.
     # Linting/formatting and type checking. Required by scripts/lint,
     # scripts/lint-check, scripts/type-check and the lint CI workflow, which all
     # invoke `uv run ruff` / `uv run pyright`. ruff is pinned to the
@@ -24,19 +25,18 @@ dev = [
     # scripts from the script/ toolchain.
     "yamllint",
     "codespell",
-    # The homeassistant floor keeps the resolver pinned to the latest stable
-    # Home Assistant. Without a floor, `uv lock --upgrade` can resolve backwards
-    # to ancient releases. pytest-homeassistant-custom-component is left
-    # unpinned so the resolver selects the release whose pinned HA matches the
-    # floor (the newest phacc targets pre-release HA). Dependabot (homeassistant
-    # group) bumps the floor on every stable HA release.
-    "homeassistant>=2026.9.0",
-    "pytest-homeassistant-custom-component",
+    # Development follows a matched stable Home Assistant and official harness.
+    # The supported minimum has its own pins in hacs.json and requirements_test_min.txt.
+    "homeassistant==2026.11.1",
+    "pytest-homeassistant==2026.11.1",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-p no:respx"
+pythonpath = ["."]
 norecursedirs = [".git", "config"]
 # Deprecation warnings attributed to the integration's own modules are errors.
 # The module field is a regex matched from the start of the warning's module, so

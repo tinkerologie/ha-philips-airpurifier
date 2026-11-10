@@ -2,8 +2,8 @@
 
 # script/ha-version-sync: Validate HA release-train consistency across all version sources
 #
-# Checks that hacs.json and pyproject.toml declare the same minimum and the
-# locked Home Assistant development/test version meets that minimum.
+# Checks the HACS support floor and the separate, matched Home Assistant and
+# pytest plugin versions in the development lock.
 #
 # Exits non-zero when a mismatch is detected so that pre-commit and CI jobs can
 # surface the inconsistency before it reaches the main branch.
@@ -35,22 +35,48 @@ def version(value: str) -> tuple[int, int, int]:
     return tuple(map(int, match.groups()))
 
 
+def pinned_version(requirements: list[str], package: str) -> str:
+    prefix = f"{package}=="
+    pins = [requirement.removeprefix(prefix) for requirement in requirements if requirement.startswith(prefix)]
+    if len(pins) != 1:
+        raise SystemExit(f"Expected one exact pin for {package}")
+    return pins[0]
+
+
+def requirement_names(requirements: list[str]) -> set[str]:
+    return {re.split(r"[<>=!~;\[ @]", requirement, maxsplit=1)[0].lower().replace("_", "-") for requirement in requirements}
+
+
 hacs_min = json.loads(Path("hacs.json").read_text())["homeassistant"]
-project = tomllib.loads(Path("pyproject.toml").read_text())
-requirement = next(r for r in project["project"]["optional-dependencies"]["dev"] if r.startswith("homeassistant>="))
-project_min = requirement.removeprefix("homeassistant>=")
-if version(hacs_min) != version(project_min):
-    raise SystemExit(f"HA minimum mismatch: HACS={hacs_min}, pyproject={project_min}")
-minimum_requirements = Path("requirements_test_min.txt").read_text()
-minimum = re.search(r"^homeassistant==([^\s#]+)", minimum_requirements, re.MULTILINE)
-helper = re.search(r"^pytest-homeassistant-custom-component==([^\s#]+)", minimum_requirements, re.MULTILINE)
-if not minimum or not helper:
-    raise SystemExit("Minimum-version requirements must pin Home Assistant and its pytest helper")
-if version(minimum.group(1)) != version(hacs_min):
+minimum = [
+    line.split("#", 1)[0].strip()
+    for line in Path("requirements_test_min.txt").read_text().splitlines()
+    if line.split("#", 1)[0].strip()
+]
+official = "pytest-homeassistant"
+legacy = "pytest-homeassistant-custom-component"
+if official in requirement_names(minimum):
+    raise SystemExit("Minimum test requirements must use only the legacy pytest plugin")
+pinned_version(minimum, legacy)
+if version(pinned_version(minimum, "homeassistant")) != version(hacs_min):
     raise SystemExit("Minimum test version must equal the HACS support floor")
+
+project = tomllib.loads(Path("pyproject.toml").read_text())
+dev = project["project"]["optional-dependencies"]["dev"]
+if legacy in requirement_names(dev):
+    raise SystemExit("Development dependencies must use only the official pytest plugin")
+target = pinned_version(dev, "homeassistant")
+if version(target) < version(hacs_min):
+    raise SystemExit(f"Development HA {target} is below supported minimum {hacs_min}")
+if pinned_version(dev, official) != target:
+    raise SystemExit(f"The development pytest plugin pin must match HA {target}")
+
 lock = tomllib.loads(Path("uv.lock").read_text())
-locked = next(p["version"] for p in lock["package"] if p["name"] == "homeassistant")
-if version(locked) < version(hacs_min):
-    raise SystemExit(f"Locked HA {locked} is below supported minimum {hacs_min}")
-print(f"HA version sync OK: minimum {hacs_min}, locked development/test version {locked}")
+packages = {package["name"]: package["version"] for package in lock["package"]}
+if legacy in packages:
+    raise SystemExit("The legacy pytest plugin must be absent from the development lock")
+for package in ("homeassistant", official):
+    if packages.get(package) != target:
+        raise SystemExit(f"Locked {package} must match development HA {target}")
+print(f"HA version sync OK: minimum {hacs_min}, development HA and pytest plugin {target}")
 PY

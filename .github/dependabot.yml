@@ -2,7 +2,7 @@
 version: 2
 updates:
   # Python dependencies (uv project: pyproject.toml + uv.lock).
-  # Checked daily so the Home Assistant floor tracks new stable releases quickly.
+  # Checked daily so the development Home Assistant and pytest plugin stay current.
   - package-ecosystem: uv
     directory: /
     schedule:
@@ -20,15 +20,14 @@ updates:
       homeassistant:
         patterns:
           - homeassistant*
-          - pytest-homeassistant-custom-component
+          - pytest-homeassistant
       dev-dependencies:
         dependency-type: development
         update-types:
           - minor
           - patch
-    # Packages pytest-homeassistant-custom-component pins exactly (==). Bumping one on
-    # its own makes the lock unsatisfiable and fails the whole update run, so they
-    # move only when pytest-homeassistant-custom-component does (STANDARDS.md §6).
+    # Update the pytest tools with the official Home Assistant plugin, which pins
+    # pytest and pytest-asyncio. Keep their versions aligned (STANDARDS.md §6).
     ignore:
       - dependency-name: pytest
       - dependency-name: pytest-asyncio

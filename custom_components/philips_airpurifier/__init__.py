@@ -29,7 +29,7 @@ from .const import (
 from .coordinator import PhilipsAirPurifierCoordinator
 from .frontend import async_register_frontend
 from .model import DeviceInformation
-from .repairs import async_check_integration_health
+from .repairs import async_check_integration_health, async_delete_entry_issues
 from .services import async_setup_services
 
 _LOGGER = logging.getLogger(__name__)
@@ -163,3 +163,8 @@ async def async_unload_entry(
 ) -> bool:
     """Unload a config entry."""
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: PhilipsAirPurifierConfigEntry) -> None:
+    """Clean up entry-scoped repairs, including on older Home Assistant versions."""
+    async_delete_entry_issues(hass, entry.entry_id)

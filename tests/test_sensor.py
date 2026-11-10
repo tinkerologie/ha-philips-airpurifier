@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pytest_homeassistant_custom_component.common import MockConfigEntry
-
 from custom_components.philips_airpurifier.const import PhilipsApi
 from custom_components.philips_airpurifier.sensor import (
     PhilipsFilterSensor,
@@ -11,6 +9,8 @@ from custom_components.philips_airpurifier.sensor import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
+
+from tests.harness import MockConfigEntry
 
 
 async def test_sensor_setup(

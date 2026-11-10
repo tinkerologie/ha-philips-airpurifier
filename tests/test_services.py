@@ -5,7 +5,6 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.philips_airpurifier.const import DOMAIN, PhilipsApi
 from custom_components.philips_airpurifier.services import (
@@ -20,6 +19,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import area_registry as ar, device_registry as dr, entity_registry as er
 from homeassistant.helpers.target import SelectedEntities
+
+from tests.harness import MockConfigEntry
 
 
 def _get_fan_entity_id(hass: HomeAssistant, config_entry: MockConfigEntry) -> str:

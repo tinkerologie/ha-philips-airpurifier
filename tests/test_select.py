@@ -6,7 +6,6 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.philips_airpurifier.const import DOMAIN, PhilipsApi
 from custom_components.philips_airpurifier.select import (
@@ -19,6 +18,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
 from .const import TEST_DEVICE_ID, TEST_MODEL
+
+from tests.harness import MockConfigEntry
 
 
 async def test_select_setup(
