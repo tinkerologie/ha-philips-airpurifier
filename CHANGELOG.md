@@ -7,6 +7,8 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 
 ## [Unreleased]
 
+[2026.11.0] - 2026-11-10
+
 ### Changed
 
 - Development and HA Next use Home Assistant's official pytest plugin when available. The
