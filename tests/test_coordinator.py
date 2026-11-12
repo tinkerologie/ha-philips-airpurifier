@@ -1893,3 +1893,39 @@ async def test_shutdown_exception_is_retrieved_and_client_recorded(
     assert coordinator._closed_client is coordinator.client
     assert coordinator._shutdown_task is not None
     assert isinstance(coordinator._shutdown_task.exception(), RuntimeError)
+
+
+async def test_shutdown_task_cancelled_by_another_caller_is_forgotten(
+    hass: HomeAssistant,
+) -> None:
+    """A shutdown task cancelled out from under the waiter is forgotten.
+
+    The close-once waiter survives a cancellation of the shutdown TASK
+    itself (asyncio.wait returns, it does not raise), sees
+    task.cancelled(), drops the half-done close-once state and lets a
+    later caller start a fresh shutdown -- unlike the caller-cancelled
+    case, the CancelledError must not propagate to whoever is waiting.
+    """
+    coordinator = _make_coordinator(hass)
+    started = asyncio.Event()
+
+    async def slow_shutdown() -> None:
+        started.set()
+        await asyncio.sleep(60)
+
+    coordinator.client.shutdown = slow_shutdown
+
+    with patch(f"{_COORD}.SHUTDOWN_TIMEOUT", 0.05):
+        waiter = asyncio.create_task(coordinator._async_close_client())
+        while coordinator._shutdown_task is None:
+            await asyncio.sleep(0)
+        coordinator._shutdown_task.cancel()
+        await waiter
+
+    assert coordinator._shutdown_task is None
+    assert coordinator._shutdown_client is None
+    assert coordinator._closed_client is not coordinator.client
+
+    coordinator.client.shutdown = AsyncMock(return_value=None)
+    await coordinator._async_close_client()
+    assert coordinator._closed_client is coordinator.client
