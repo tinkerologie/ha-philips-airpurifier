@@ -595,6 +595,29 @@ async def test_async_observe_status_success_updates_data(hass: HomeAssistant) ->
     assert coordinator.data == {"pwr": "1"}
 
 
+@pytest.mark.parametrize(("model", "renew_interval"), [("CX5120", 1800), (None, None)])
+async def test_async_observe_status_renew_interval(
+    hass: HomeAssistant, model: str | None, renew_interval: int | None
+) -> None:
+    """Push-only models renew the observation only at the nudge watchdog interval."""
+
+    async def stream():
+        yield {"D03102": 1}
+
+    client = MagicMock()
+    client.observe_status = MagicMock(return_value=stream())
+    coordinator = _make_coordinator(hass, client=client, **({"model": model} if model else {}))
+
+    def _fake_create_task(coro, *_args, **_kwargs):
+        coro.close()
+        return MagicMock()
+
+    with patch.object(hass, "async_create_background_task", side_effect=_fake_create_task):
+        await coordinator._async_observe_status()
+
+    client.observe_status.assert_called_once_with(renew_interval=renew_interval)
+
+
 async def test_async_reconnect_creates_task_when_idle(hass: HomeAssistant) -> None:
     """Test reconnect schedules reconnect task when none is running."""
     coordinator = _make_coordinator(hass)

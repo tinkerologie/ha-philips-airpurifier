@@ -1522,7 +1522,7 @@ DEVICE_MODELS: dict[str, DeviceModelConfig] = {
             },
         },
         oscillation={
-            PhilipsApi.NEW2_OSCILLATION: PhilipsApi.OSCILLATION_MAP2,
+            PhilipsApi.NEW2_OSCILLATION: PhilipsApi.OSCILLATION_MAP_CX5120,
         },
         lights=[PhilipsApi.NEW2_DISPLAY_BACKLIGHT2],
         switches=[PhilipsApi.NEW2_BEEP],
