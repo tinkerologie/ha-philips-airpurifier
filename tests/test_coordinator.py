@@ -8,6 +8,8 @@ from contextlib import suppress
 import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from aiocoap import Context
+from philips_airctrl import CoAPClient
 import pytest
 
 from custom_components.philips_airpurifier.const import DEFAULT_MISSED_PACKAGE_COUNT, DOMAIN
@@ -212,7 +214,7 @@ def _make_coordinator(
     hass: HomeAssistant,
     *,
     model: str = TEST_MODEL,
-    client: AsyncMock | None = None,
+    client: CoAPClient | AsyncMock | None = None,
     update_watchdog_enabled: bool = True,
     missed_package_count: int = DEFAULT_MISSED_PACKAGE_COUNT,
 ) -> PhilipsAirPurifierCoordinator:
@@ -1722,210 +1724,80 @@ async def test_connection_diagnostics_reports_reconnect_in_progress(hass: HomeAs
     assert snapshot["watchdog_interval"] == coordinator._timeout * coordinator.missed_package_count
 
 
-async def test_do_reconnect_retries_never_shut_the_same_client_down_twice(
+async def test_failed_reconnects_and_unload_shut_each_coap_context_down_once(
     hass: HomeAssistant,
 ) -> None:
-    """Failed reconnect retries must shut each client down at most once (issue #198).
-
-    A second shutdown of the same aiocoap client raises inside a task nothing
-    awaits, which Home Assistant logs as "Task exception was never retrieved"
-    on every failed retry.
-    """
-    old_client = AsyncMock()
-    old_client.shutdown = AsyncMock()
+    """Run reconnect and unload with real library clients and fake transports."""
+    contexts = [AsyncMock(spec=Context) for _ in range(3)]
+    with patch.object(Context, "create_client_context", side_effect=contexts):
+        old_client, *replacements = [await CoAPClient.create(TEST_HOST, sync=False) for _ in contexts]
     coordinator = _make_coordinator(hass, client=old_client)
 
-    created_clients: list[AsyncMock] = []
-
-    async def _create_client(host: str, create_client: object = None) -> AsyncMock:
-        client = AsyncMock()
-        client.get_status.side_effect = RuntimeError("status failed")
-        created_clients.append(client)
-        return client
-
     with (
-        patch(
-            "custom_components.philips_airpurifier.coordinator.CoAPClient.create",
-            new=_create_client,
-        ),
-        patch.object(coordinator, "_schedule_reconnect_retry"),
+        patch.object(CoAPClient, "create", side_effect=replacements),
+        patch.object(CoAPClient, "get_status", side_effect=RuntimeError("status failed")),
     ):
         await coordinator._do_reconnect()
         await coordinator._do_reconnect()
+        await coordinator.async_shutdown()
 
-    for client in created_clients:
-        assert client.shutdown.await_count == 1
-
-
-async def test_async_shutdown_after_failed_reconnect_does_not_shut_client_down_again(
-    hass: HomeAssistant,
-) -> None:
-    """Unload after a failed reconnect finishes the single shutdown (issue #198)."""
-    old_client = AsyncMock()
-    old_client.shutdown = AsyncMock()
-    coordinator = _make_coordinator(hass, client=old_client)
-
-    replacement = AsyncMock()
-    replacement.get_status.side_effect = RuntimeError("status failed")
-
-    with (
-        patch(
-            "custom_components.philips_airpurifier.coordinator.CoAPClient.create",
-            new=AsyncMock(return_value=replacement),
-        ),
-        patch.object(coordinator, "_schedule_reconnect_retry"),
-    ):
-        await coordinator._do_reconnect()
-
-    await coordinator.async_shutdown()
-
-    assert replacement.shutdown.await_count == 1
+    for context in contexts:
+        context.shutdown.assert_awaited_once()
 
 
-async def test_cancelled_shutdown_propagates_and_leaves_client_unrecorded(
-    hass: HomeAssistant,
-) -> None:
-    """Cancelling a shutdown stops the reconnect instead of letting it run on.
-
-    async_shutdown cancels the reconnect task, then releases the client itself.
-    If the cancellation lands inside the client shutdown await, the reconnect
-    must end cancelled — not swallow the error and continue into a nudge or a
-    replacement connection after unload (review follow-up to issue #198).
-    """
-    coordinator = _make_coordinator(hass)
+async def test_unload_cancels_reconnect_during_transport_shutdown(hass: HomeAssistant) -> None:
+    """Unload waits for the same teardown without allowing a reconnect to continue."""
+    context = AsyncMock(spec=Context)
     started = asyncio.Event()
+    release = asyncio.Event()
 
     async def slow_shutdown() -> None:
         started.set()
-        await asyncio.sleep(60)
-
-    coordinator.client.shutdown = slow_shutdown
-    task = hass.async_create_task(coordinator._async_close_client())
-    await started.wait()
-    task.cancel()
-    with pytest.raises(asyncio.CancelledError):
-        await task
-    assert coordinator._closed_client is not coordinator.client
-
-
-async def test_overlapping_close_paths_shut_the_client_down_once(
-    hass: HomeAssistant,
-) -> None:
-    """Unload and a reconnect closing at the same time must not double-shutdown.
-
-    Both paths check _closed_client before awaiting the shutdown; without
-    serialising them they can both pass the check and hand the same aiocoap
-    client to shutdown twice (review follow-up to issue #198).
-    """
-    coordinator = _make_coordinator(hass)
-    started = asyncio.Event()
-    release = asyncio.Event()
-    calls: list[int] = []
-
-    async def slow_shutdown() -> None:
-        calls.append(len(calls) + 1)
-        started.set()
         await release.wait()
 
-    coordinator.client.shutdown = slow_shutdown
-    first = hass.async_create_task(coordinator._async_close_client())
-    await started.wait()
-    second = hass.async_create_task(coordinator._async_close_client())
-    for _ in range(5):
-        await asyncio.sleep(0)
-    release.set()
-    await asyncio.gather(first, second)
+    context.shutdown.side_effect = slow_shutdown
+    with patch.object(Context, "create_client_context", return_value=context):
+        client = await CoAPClient.create(TEST_HOST, sync=False)
+    coordinator = _make_coordinator(hass, client=client)
 
-    assert calls == [1]
-    assert coordinator._closed_client is coordinator.client
-
-
-async def test_shutdown_timeout_retry_resumes_the_same_shutdown(
-    hass: HomeAssistant,
-) -> None:
-    """A timed-out shutdown is resumed by the retry, not started again.
-
-    Cancelling the shutdown and calling client.shutdown() again makes both
-    aiocoap message-manager tasks raise on the retry, and Context.shutdown
-    stops at the first one, so the other logs
-    "Task exception was never retrieved" (review follow-up to issue #198).
-    """
-    coordinator = _make_coordinator(hass)
-    release = asyncio.Event()
-    calls: list[int] = []
-
-    async def slow_shutdown() -> None:
-        calls.append(len(calls) + 1)
-        await release.wait()
-
-    coordinator.client.shutdown = slow_shutdown
-
-    with patch(f"{_COORD}.SHUTDOWN_TIMEOUT", 0.01):
-        await coordinator._async_close_client()
-        assert calls == [1]
-        assert coordinator._closed_client is not coordinator.client
-
+    with patch.object(CoAPClient, "create") as create:
+        await coordinator._async_reconnect()
+        reconnect = coordinator._reconnect_task
+        assert reconnect is not None
+        await started.wait()
+        unload = hass.async_create_task(coordinator.async_shutdown())
+        with pytest.raises(asyncio.CancelledError):
+            await reconnect
         release.set()
-        await coordinator._shutdown_task
+        await unload
 
-        await coordinator._async_close_client()
-
-    assert calls == [1]
-    assert coordinator._closed_client is coordinator.client
+    create.assert_not_called()
+    context.shutdown.assert_awaited_once()
 
 
-async def test_shutdown_exception_is_retrieved_and_client_recorded(
+async def test_shutdown_failure_after_timeout_is_retrieved(
     hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """A failed shutdown counts as closed, and its exception is retrieved.
+    """The real client handles a transport error after the coordinator's wait ends."""
+    context = AsyncMock(spec=Context)
+    release = asyncio.Event()
 
-    A retry would call client.shutdown() again on a context that already
-    failed, so the client is recorded and the exception read off the task
-    instead of being logged as "Task exception was never retrieved".
-    """
-    coordinator = _make_coordinator(hass)
-    coordinator.client.shutdown = AsyncMock(side_effect=RuntimeError("shutdown failed"))
+    async def failing_shutdown() -> None:
+        await release.wait()
+        raise RuntimeError("late transport failure")
 
-    await coordinator._async_close_client()
-    await coordinator._async_close_client()
+    context.shutdown.side_effect = failing_shutdown
+    with patch.object(Context, "create_client_context", return_value=context):
+        client = await CoAPClient.create(TEST_HOST, sync=False)
+    coordinator = _make_coordinator(hass, client=client)
 
-    coordinator.client.shutdown.assert_awaited_once()
-    assert coordinator._closed_client is coordinator.client
-    assert coordinator._shutdown_task is not None
-    assert isinstance(coordinator._shutdown_task.exception(), RuntimeError)
+    with caplog.at_level(logging.DEBUG, logger="philips_airctrl.coap.client"):
+        with patch(f"{_COORD}.SHUTDOWN_TIMEOUT", 0.01):
+            await coordinator.async_shutdown()
+        release.set()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
 
-
-async def test_shutdown_task_cancelled_by_another_caller_is_forgotten(
-    hass: HomeAssistant,
-) -> None:
-    """A shutdown task cancelled out from under the waiter is forgotten.
-
-    The close-once waiter survives a cancellation of the shutdown TASK
-    itself (asyncio.wait returns, it does not raise), sees
-    task.cancelled(), drops the half-done close-once state and lets a
-    later caller start a fresh shutdown -- unlike the caller-cancelled
-    case, the CancelledError must not propagate to whoever is waiting.
-    """
-    coordinator = _make_coordinator(hass)
-    started = asyncio.Event()
-
-    async def slow_shutdown() -> None:
-        started.set()
-        await asyncio.sleep(60)
-
-    coordinator.client.shutdown = slow_shutdown
-
-    with patch(f"{_COORD}.SHUTDOWN_TIMEOUT", 0.05):
-        waiter = asyncio.create_task(coordinator._async_close_client())
-        while coordinator._shutdown_task is None:
-            await asyncio.sleep(0)
-        coordinator._shutdown_task.cancel()
-        await waiter
-
-    assert coordinator._shutdown_task is None
-    assert coordinator._shutdown_client is None
-    assert coordinator._closed_client is not coordinator.client
-
-    coordinator.client.shutdown = AsyncMock(return_value=None)
-    await coordinator._async_close_client()
-    assert coordinator._closed_client is coordinator.client
+    context.shutdown.assert_awaited_once()
+    assert "CoAP context shutdown failed: RuntimeError('late transport failure')" in caplog.text

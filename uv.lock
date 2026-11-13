@@ -1065,7 +1065,7 @@ requires-dist = [
     { name = "codespell", marker = "extra == 'dev'" },
     { name = "homeassistant", marker = "extra == 'dev'", specifier = "==2026.11.1" },
     { name = "infrared-protocols", marker = "extra == 'dev'" },
-    { name = "philips-airctrl", specifier = "==1.4.0" },
+    { name = "philips-airctrl", specifier = "==1.5.0" },
     { name = "pyright", marker = "extra == 'dev'" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pytest-asyncio", marker = "extra == 'dev'" },
@@ -1600,7 +1600,7 @@ wheels = [
 
 [[package]]
 name = "philips-airctrl"
-version = "1.4.0"
+version = "1.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiocoap" },
@@ -1611,9 +1611,9 @@ dependencies = [
     { name = "pyyaml" },
     { name = "tabulate" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ce/cf/1e563c61bca992087c64130ebc53412e63d5e4f5fe82e706f643154d5297/philips_airctrl-1.4.0.tar.gz", hash = "sha256:aafe065c2f16316a07e1f056740b32ea8fddfc8b8f1d971bc411d786c7be2f30", size = 132106, upload-time = "2026-10-28T00:02:09.322Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/51/5d/5eea129159f6e69dea22532ee1668d3c7ca075f0760c29171f5a143e1f6c/philips_airctrl-1.5.0.tar.gz", hash = "sha256:beb0dcea627abffff2d76e863ca1381f78a52bc5467d56063aa8e04e7f006099", size = 134750, upload-time = "2026-11-12T08:17:22.425Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/24/60/616c694e9aed5885a5444f449e5792656fcaf19922d0a8e9de4ed276eb3f/philips_airctrl-1.4.0-py3-none-any.whl", hash = "sha256:2d5cc47946f4a7b5957e6fd28c4e067a8977726ad7be8108ca3ad5e3294c70b3", size = 31257, upload-time = "2026-10-28T00:02:07.495Z" },
+    { url = "https://files.pythonhosted.org/packages/3f/7d/4643b326269a8ccaf9ef5e18260960131f26e6042d3e2f9f8605cd00bbcf/philips_airctrl-1.5.0-py3-none-any.whl", hash = "sha256:53f0e138f3b0615952935fd5cecd36bfb9a7b0c55f484e0fb26b907e979119c9", size = 31908, upload-time = "2026-11-12T08:17:20.856Z" },
 ]
 
 [[package]]

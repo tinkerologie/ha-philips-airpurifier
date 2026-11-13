@@ -15,7 +15,9 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
   observation only at the nudge watchdog interval (30 min).
 - CX5120 swing now writes 17222, which the device accepts (it then reports 17920), instead of
   17242 from `OSCILLATION_MAP2`, which it ignores.
-- Repeated reconnect failures no longer spam the Home Assistant log with aiocoap's `Task exception was never retrieved`: the coordinator shuts each client down once, and a shutdown cut off by the timeout or a cancellation no longer counts as done, so unload still releases it (#198).
+- Repeated reconnect failures no longer spam the Home Assistant log with aiocoap task
+  exceptions. philips-airctrl 1.5.0 tears each CoAP context down once, even when reconnect
+  and unload overlap or a caller times out (#198).
 
 ## [2026.11.0] - 2026-11-10
 
