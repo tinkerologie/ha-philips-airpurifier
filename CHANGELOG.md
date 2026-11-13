@@ -7,6 +7,8 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 
 ## [Unreleased]
 
+## [2026.11.1] - 2026-11-13
+
 ### Fixed
 
 - CX5120 heaters with firmware 0.4.9 never answer the observation renewal, so the 60 s
