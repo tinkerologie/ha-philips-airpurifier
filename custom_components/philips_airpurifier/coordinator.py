@@ -297,18 +297,31 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         nudge = self._build_status_nudge()
         return await async_fetch_status_with_nudge(self.host, nudge, create_client=CoAPClient.create)
 
+    async def _async_close_client(self, client: CoAPClient) -> None:
+        """Wait briefly for the library to close a client."""
+
+        async def shutdown() -> None:
+            with contextlib.suppress(Exception):
+                await client.shutdown()
+
+        # The library shares one transport teardown across callers. Keep this
+        # waiter alive when reconnect or unload stops waiting so it can receive
+        # late errors, including on Python versions that report exceptions from
+        # a cancelled shield to Home Assistant's event-loop error handler.
+        task = self.hass.async_create_background_task(shutdown(), f"philips_airpurifier_shutdown_{self.host}")
+        await asyncio.wait((task,), timeout=SHUTDOWN_TIMEOUT)
+
     async def _async_refresh_via_nudge(self) -> None:
         """Fetch via nudge and publish the resulting status to listeners."""
         # The nudge helper opens its own short-lived client. Single-client
         # firmware evicts any other connection, so close the coordinator client
         # first and recreate it afterwards — otherwise the observe stream started
         # after this would attach to the connection the nudge just evicted.
-        with contextlib.suppress(Exception):
-            await asyncio.wait_for(self.client.shutdown(), timeout=SHUTDOWN_TIMEOUT)
+        await self._async_close_client(self.client)
         status = await self._async_nudge_fetch()
         replacement = await async_create_client(self.host, create_client=CoAPClient.create)
         if self._shutting_down:
-            await asyncio.wait_for(replacement.shutdown(), timeout=SHUTDOWN_TIMEOUT)
+            await self._async_close_client(replacement)
             return
         self.client = replacement
         self._timeout = DEFAULT_TIMEOUT
@@ -540,8 +553,6 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # Retire the old observer first so its stream ending cannot raise
             # into this reconnect and request another one.
             await self._async_stop_observer()
-            with contextlib.suppress(Exception):
-                await asyncio.wait_for(self.client.shutdown(), timeout=SHUTDOWN_TIMEOUT)
 
             if self._status_nudge_enabled:
                 # Re-fetch via nudge before re-establishing the observe stream.
@@ -552,10 +563,11 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 outage_started = self._outage_started
                 await self._async_refresh_via_nudge()
             else:
+                await self._async_close_client(self.client)
                 stage = "create"
                 replacement = await async_create_client(self.host, create_client=CoAPClient.create)
                 if self._shutting_down:
-                    await asyncio.wait_for(replacement.shutdown(), timeout=SHUTDOWN_TIMEOUT)
+                    await self._async_close_client(replacement)
                     return
                 self.client = replacement
                 # One-shot read before re-establishing the observe stream.
@@ -587,8 +599,7 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if stage == "status":
                 # Release the client whose status read failed instead of
                 # keeping it open through the backoff delay.
-                with contextlib.suppress(Exception):
-                    await asyncio.wait_for(self.client.shutdown(), timeout=SHUTDOWN_TIMEOUT)
+                await self._async_close_client(self.client)
             retry_delay = self._reconnect_delay
             self._reconnect_delay = min(self._reconnect_delay * 2, RECONNECT_MAX_DELAY)
             self._consecutive_reconnect_failures += 1
@@ -704,8 +715,7 @@ class PhilipsAirPurifierCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         _LOGGER.debug("%d device task(s) did not stop before shutdown timeout", len(pending))
             finally:
                 try:
-                    with contextlib.suppress(Exception):
-                        await asyncio.wait_for(self.client.shutdown(), timeout=SHUTDOWN_TIMEOUT)
+                    await self._async_close_client(self.client)
                 finally:
                     self._observe_task = None
                     self._watchdog_task = None

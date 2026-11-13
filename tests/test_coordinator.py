@@ -8,6 +8,8 @@ from contextlib import suppress
 import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from aiocoap import Context
+from philips_airctrl import CoAPClient
 import pytest
 
 from custom_components.philips_airpurifier.const import DEFAULT_MISSED_PACKAGE_COUNT, DOMAIN
@@ -212,7 +214,7 @@ def _make_coordinator(
     hass: HomeAssistant,
     *,
     model: str = TEST_MODEL,
-    client: AsyncMock | None = None,
+    client: CoAPClient | AsyncMock | None = None,
     update_watchdog_enabled: bool = True,
     missed_package_count: int = DEFAULT_MISSED_PACKAGE_COUNT,
 ) -> PhilipsAirPurifierCoordinator:
@@ -1720,3 +1722,82 @@ async def test_connection_diagnostics_reports_reconnect_in_progress(hass: HomeAs
     assert snapshot["observer_running"] is False
     assert snapshot["seconds_since_last_update"] is None
     assert snapshot["watchdog_interval"] == coordinator._timeout * coordinator.missed_package_count
+
+
+async def test_failed_reconnects_and_unload_shut_each_coap_context_down_once(
+    hass: HomeAssistant,
+) -> None:
+    """Run reconnect and unload with real library clients and fake transports."""
+    contexts = [AsyncMock(spec=Context) for _ in range(3)]
+    with patch.object(Context, "create_client_context", side_effect=contexts):
+        old_client, *replacements = [await CoAPClient.create(TEST_HOST, sync=False) for _ in contexts]
+    coordinator = _make_coordinator(hass, client=old_client)
+
+    with (
+        patch.object(CoAPClient, "create", side_effect=replacements),
+        patch.object(CoAPClient, "get_status", side_effect=RuntimeError("status failed")),
+    ):
+        await coordinator._do_reconnect()
+        await coordinator._do_reconnect()
+        await coordinator.async_shutdown()
+
+    for context in contexts:
+        context.shutdown.assert_awaited_once()
+
+
+async def test_unload_cancels_reconnect_during_transport_shutdown(hass: HomeAssistant) -> None:
+    """Unload waits for the same teardown without allowing a reconnect to continue."""
+    context = AsyncMock(spec=Context)
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def slow_shutdown() -> None:
+        started.set()
+        await release.wait()
+
+    context.shutdown.side_effect = slow_shutdown
+    with patch.object(Context, "create_client_context", return_value=context):
+        client = await CoAPClient.create(TEST_HOST, sync=False)
+    coordinator = _make_coordinator(hass, client=client)
+
+    with patch.object(CoAPClient, "create") as create:
+        await coordinator._async_reconnect()
+        reconnect = coordinator._reconnect_task
+        assert reconnect is not None
+        await started.wait()
+        unload = hass.async_create_task(coordinator.async_shutdown())
+        with pytest.raises(asyncio.CancelledError):
+            await reconnect
+        release.set()
+        await unload
+
+    create.assert_not_called()
+    context.shutdown.assert_awaited_once()
+
+
+async def test_shutdown_failure_after_timeout_is_retrieved(
+    hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The real client handles a transport error after the coordinator's wait ends."""
+    context = AsyncMock(spec=Context)
+    release = asyncio.Event()
+
+    async def failing_shutdown() -> None:
+        await release.wait()
+        raise RuntimeError("late transport failure")
+
+    context.shutdown.side_effect = failing_shutdown
+    with patch.object(Context, "create_client_context", return_value=context):
+        client = await CoAPClient.create(TEST_HOST, sync=False)
+    coordinator = _make_coordinator(hass, client=client)
+
+    with caplog.at_level(logging.DEBUG, logger="philips_airctrl.coap.client"):
+        with patch(f"{_COORD}.SHUTDOWN_TIMEOUT", 0.01):
+            await coordinator.async_shutdown()
+        release.set()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+    context.shutdown.assert_awaited_once()
+    assert "CoAP context shutdown failed: RuntimeError('late transport failure')" in caplog.text

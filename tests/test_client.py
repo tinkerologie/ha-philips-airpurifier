@@ -263,6 +263,34 @@ async def test_nudge_does_not_reuse_an_earlier_restoration_acknowledgement() -> 
     assert writes == 4
 
 
+async def test_async_fetch_status_with_nudge_cancels_the_observation_on_timeout() -> None:
+    """The observe task is cancelled and awaited, not left behind on timeout."""
+    cleaned = asyncio.Event()
+
+    async def _blocking_observer() -> AsyncIterator[Any]:
+        try:
+            await asyncio.Event().wait()
+            yield None  # pragma: no cover - blocks before the first push
+        finally:
+            cleaned.set()
+
+    client = MagicMock()
+    client.observe_status = MagicMock(return_value=_blocking_observer())
+    client.set_control_value = AsyncMock()
+    client.shutdown = AsyncMock()
+
+    with (
+        patch(f"{_CLIENT}.async_create_client", AsyncMock(return_value=client)),
+        patch(f"{_CLIENT}._NUDGE_REGISTER_DELAY", 0),
+        patch(f"{_CLIENT}._NUDGE_WAIT_TIMEOUT", 0.01),
+        pytest.raises(TimeoutError, match="no status push from 1.2.3.4"),
+    ):
+        await async_fetch_status_with_nudge("1.2.3.4", [("D03105", 0)])
+
+    assert cleaned.is_set()
+    client.shutdown.assert_awaited()
+
+
 @pytest.fixture(autouse=True)
 def _reset_aiocoap_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Reset aiocoap transport env readiness and environment variable."""
