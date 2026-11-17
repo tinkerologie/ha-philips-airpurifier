@@ -201,3 +201,29 @@ jobs:
         run: uv python install 3.14
       - name: Test minimum supported Home Assistant
         run: ./script/test-minimum
+
+  ci-gate:
+    name: CI Gate
+    if: ${{ always() }}
+    needs: ["ruff", "type-check", "test", "codecov", "frontend", "minimum-version"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Require successful validation
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+          ALLOWED_SKIPS: ${{ '[]' }}
+        run: |
+          python3 - <<'PYTHON'
+          import json, os, sys
+          results = json.loads(os.environ['RESULTS'])
+          allowed_skips = set(json.loads(os.environ['ALLOWED_SKIPS']))
+          failures = {name: job['result'] for name, job in results.items()
+                      if job['result'] != 'success'
+                      and not (job['result'] == 'skipped' and name in allowed_skips)}
+          if not results or failures:
+              print(f'::error::Required CI did not pass: {failures or "no results"}')
+              sys.exit(1)
+          print('All required CI jobs passed (only documented event skips allowed).')
+          PYTHON

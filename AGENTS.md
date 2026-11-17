@@ -6,7 +6,7 @@ All AI coding assistants (Claude Code, Gemini, GitHub Copilot, Cursor, Roo, Devi
 
 1. Issue-First Requirement: Never start writing code or creating pull requests without an existing GitHub Issue.
 2. Issue Template: Issues must be created using the official Issue Forms (`01-bug-report.yml` for bugs or `02-enhancement-request.yml` for enhancements).
-3. CodeRabbit AI Plan: Every issue must have a generated Coding Plan from CodeRabbit AI (`@coderabbitai plan`). AI agents must read and implement strictly according to the approved plan.
+3. CodeRabbit AI Plan: Use an available Coding Plan. If the free plan or quota cannot provide one, follow the planning and review fallback in [organisation governance](https://github.com/tinkerologie/.github/blob/main/GOVERNANCE.md#free-tier-planning-and-review). Never enable paid usage or retry repeatedly.
 4. Branch Discipline: Always create and work on a dedicated branch (`feat/<issue-id>-<description>` or `fix/<issue-id>-<description>`). NEVER commit directly to `main`.
 5. Documentation & Changelog: Update `CHANGELOG.md` under `## [Unreleased]` for any user-facing or architectural changes.
 6. Local Verification: Run all test, lint, format, and typecheck commands locally before committing. All tests must pass with zero errors and zero warnings.
@@ -14,7 +14,7 @@ All AI coding assistants (Claude Code, Gemini, GitHub Copilot, Cursor, Roo, Devi
 8. Draft PR First: ALWAYS open pull requests as DRAFT (`gh pr create --draft`).
 9. CI Verification: Wait for CI workflows to run on the draft PR and verify that all status checks pass.
 10. Ready for Review: Only mark the PR as ready for review (`gh pr ready`) once all checks pass and all due diligence is verified.
-11. Review Clearance: Review and resolve all CodeRabbit AI and GitHub Copilot comments. Ensure Codecov reports show zero errors, zero warnings, and no coverage drop.
+11. Review Clearance: Review and resolve all available review comments; Copilot Free PR review is not a required service. Ensure Codecov reports show zero errors, zero warnings, and no coverage drop.
 
 This document provides guidance for AI coding agents working on this Home Assistant custom integration project.
 
@@ -622,7 +622,7 @@ These rules apply to every contributor, including AI coding agents. The full org
 1. **Issue first.** Open an issue with the bug or enhancement template before opening a pull
    request. Keep the title prefix `[Bug]:` or `[Enhancement]:`, followed by a space and the title.
    Automation applies the `bug` or `enhancement` label when it can tell the type, and CodeRabbit
-   then posts a Coding Plan on the issue. Implement from that plan. The labeler skips issues labeled
+   may post a Coding Plan on the issue. Use it when available; otherwise follow the free-tier planning and review fallback in the linked organisation governance. The labeler skips issues labeled
    `question`, `duplicate`, `invalid`, `wontfix`, or `no-type`, and never re-adds a type label that
    a maintainer removed.
 2. **Link the issue.** In the PR's **Related Issues** section, write `Closes #<number>` (or `Fixes`
@@ -645,5 +645,5 @@ These rules apply to every contributor, including AI coding agents. The full org
    and force-push before doing any other work.
 7. **Stale items.** Issues and PRs with no activity for 14 days are labeled `stale` and closed 30
    days later unless there is new activity. These labels are exempt:
-   - Issues: `pinned`, `security`, `confirmed`, `work-in-progress`, `priority: critical`, `priority: high`.
+   - Issues: `pinned`, `security`, `confirmed`, `work-in-progress`, `priority: critical`, `priority: high`, `ready-for-agent`, `ready-for-human`, `blocked`.
    - Pull requests: `pinned`, `security`, `work-in-progress`.
