@@ -1,0 +1,14 @@
+codecov:
+  require_ci_to_pass: false
+  strict_yaml_branch: main
+  notify:
+    wait_for_ci: false
+coverage:
+  status:
+    patch:
+      default:
+        target: 90%
+        threshold: 0%
+        informational: false
+        if_not_found: failure
+github_checks: false

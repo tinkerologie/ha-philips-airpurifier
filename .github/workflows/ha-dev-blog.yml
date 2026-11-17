@@ -25,6 +25,7 @@ concurrency:
 
 jobs:
   check:
+    timeout-minutes: 10
     name: Check new posts
     runs-on: ubuntu-latest
     permissions:

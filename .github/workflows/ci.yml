@@ -15,6 +15,7 @@ concurrency:
 
 jobs:
   ruff:
+    timeout-minutes: 30
     name: Lint
     runs-on: ubuntu-latest
     steps:
@@ -45,6 +46,7 @@ jobs:
         run: uv run ruff format . --check
 
   type-check:
+    timeout-minutes: 30
     name: Type check
     runs-on: ubuntu-latest
     steps:
@@ -74,6 +76,7 @@ jobs:
         run: npx --no-install pyright --pythonpath .venv/bin/python
 
   test:
+    timeout-minutes: 30
     name: Test
     runs-on: ubuntu-latest
     steps:
@@ -103,11 +106,13 @@ jobs:
       - name: Upload coverage artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
+          retention-days: 7
           name: coverage
           path: coverage.xml
           if-no-files-found: error
 
   codecov:
+    timeout-minutes: 30
     name: Coverage
     needs: test
     runs-on: ubuntu-latest
@@ -135,10 +140,11 @@ jobs:
         with:
           slug: ${{ github.repository }}
           files: ./coverage.xml
-          use_oidc: ${{ env.CODECOV_OIDC == 'true' }}
-          fail_ci_if_error: ${{ env.CODECOV_OIDC == 'true' }}
+          use_oidc: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+          fail_ci_if_error: false
 
   frontend:
+    timeout-minutes: 30
     name: Dashboard cards
     runs-on: ubuntu-latest
     steps:
@@ -188,6 +194,7 @@ jobs:
         run: git diff --exit-code -- custom_components/philips_airpurifier/frontend/
 
   minimum-version:
+    timeout-minutes: 30
     name: Home Assistant 2026.9 minimum
     runs-on: ubuntu-latest
     steps:

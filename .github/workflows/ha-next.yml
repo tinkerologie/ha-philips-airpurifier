@@ -33,6 +33,7 @@ concurrency:
 
 jobs:
   ha-next:
+    timeout-minutes: 10
     name: Next Home Assistant (${{ matrix.channel }})
     runs-on: ubuntu-latest
     continue-on-error: true
@@ -243,6 +244,7 @@ jobs:
           retention-days: 7
 
   report:
+    timeout-minutes: 10
     name: Report
     needs: ha-next
     if: ${{ always() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}

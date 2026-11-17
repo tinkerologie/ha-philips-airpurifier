@@ -19,6 +19,7 @@ concurrency:
 
 jobs:
   build:
+    timeout-minutes: 60
     name: Build and attest
     runs-on: ubuntu-latest
     permissions:
@@ -101,6 +102,7 @@ jobs:
           retention-days: 7
 
   publish:
+    timeout-minutes: 60
     name: Publish
     needs: build
     # A manual run from another branch builds and attests, but never publishes.
