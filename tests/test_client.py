@@ -11,6 +11,7 @@ import warnings
 
 import pytest
 
+from custom_components.philips_airpurifier import client as client_module
 from custom_components.philips_airpurifier.client import (
     async_fetch_device_info,
     async_fetch_status_with_nudge,
@@ -92,7 +93,7 @@ async def test_async_fetch_status_with_nudge_success() -> None:
 async def test_async_fetch_status_with_nudge_timeout() -> None:
     """Test the nudge fetch raises a descriptive TimeoutError when no push arrives."""
     client = MagicMock()
-    client.observe_status = MagicMock(return_value=_aiter([]))
+    client.observe_status = MagicMock(side_effect=lambda: _aiter([]))
     client.set_control_value = AsyncMock()
     client.shutdown = AsyncMock()
 
@@ -129,7 +130,7 @@ async def test_async_fetch_status_with_nudge_write_failure_is_logged() -> None:
 async def test_async_fetch_status_with_nudge_observe_error_is_logged() -> None:
     """An observe-stream error is swallowed and surfaces as a nudge timeout."""
     client = MagicMock()
-    client.observe_status = MagicMock(return_value=_aiter_raises(RuntimeError("stream died")))
+    client.observe_status = MagicMock(side_effect=lambda: _aiter_raises(RuntimeError("stream died")))
     client.set_control_value = AsyncMock()
     client.shutdown = AsyncMock()
 
@@ -212,7 +213,7 @@ async def test_nudge_exhausts_attempts_when_writes_stall_without_a_push(monkeypa
         await never.wait()
 
     client = MagicMock()
-    client.observe_status.return_value = _aiter([])
+    client.observe_status.side_effect = lambda: _aiter([])
     client.set_control_value = AsyncMock(side_effect=write)
     client.shutdown = AsyncMock()
     monkeypatch.setattr(client_module, "_NUDGE_WRITE_TIMEOUT", 0.01, raising=False)
@@ -289,6 +290,84 @@ async def test_async_fetch_status_with_nudge_cancels_the_observation_on_timeout(
 
     assert cleaned.is_set()
     client.shutdown.assert_awaited()
+
+
+@pytest.mark.unit
+async def test_nudge_reopens_observation_immediately_when_stream_ends_mid_wait(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When attempt 1's observation dies mid-wait, reopen immediately and succeed on attempt 2."""
+    attempt1_writes_done = asyncio.Event()
+    attempt2_writes_done = asyncio.Event()
+    write_count = 0
+    observe_calls = 0
+
+    async def observe_first() -> AsyncIterator[dict[str, int]]:
+        await attempt1_writes_done.wait()
+        if False:  # pragma: no cover - async generator that raises without yielding
+            yield {}
+        raise RuntimeError("stream died after attempt 1")
+
+    async def observe_second() -> AsyncIterator[dict[str, int]]:
+        await attempt2_writes_done.wait()
+        yield {"D03105": 0}
+
+    def next_observer() -> AsyncIterator[dict[str, int]]:
+        nonlocal observe_calls
+        observe_calls += 1
+        return observe_first() if observe_calls == 1 else observe_second()
+
+    async def write(_key: str, _value: int) -> bool:
+        nonlocal write_count
+        write_count += 1
+        if write_count == 2:
+            attempt1_writes_done.set()
+        elif write_count == 4:
+            attempt2_writes_done.set()
+        return True
+
+    client = MagicMock()
+    client.observe_status = MagicMock(side_effect=next_observer)
+    client.set_control_value = AsyncMock(side_effect=write)
+    client.shutdown = AsyncMock()
+    monkeypatch.setattr(client_module, "_NUDGE_REGISTER_DELAY", 0)
+    monkeypatch.setattr(client_module, "_NUDGE_WAIT_TIMEOUT", 10.0)
+
+    result = await asyncio.wait_for(
+        async_fetch_status_with_nudge(
+            "1.2.3.4", [("D03105", 0), ("D03105", 115)], create_client=AsyncMock(return_value=client)
+        ),
+        timeout=1.0,
+    )
+
+    assert result == {"D03105": 115}
+    assert observe_calls == 2
+    assert write_count == 4
+    client.shutdown.assert_awaited_once()
+
+
+@pytest.mark.unit
+async def test_nudge_fails_immediately_when_final_attempt_observation_ends(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When every attempt's observation ends without a push, raise TimeoutError without waiting."""
+    client = MagicMock()
+    client.observe_status = MagicMock(side_effect=lambda: _aiter_raises(RuntimeError("stream died")))
+    client.set_control_value = AsyncMock(return_value=True)
+    client.shutdown = AsyncMock()
+    monkeypatch.setattr(client_module, "_NUDGE_REGISTER_DELAY", 0)
+    monkeypatch.setattr(client_module, "_NUDGE_WAIT_TIMEOUT", 10.0)
+
+    with pytest.raises(TimeoutError, match="no status push from 1.2.3.4 after 2 nudge attempts"):
+        await asyncio.wait_for(
+            async_fetch_status_with_nudge(
+                "1.2.3.4", [("D03105", 0), ("D03105", 115)], create_client=AsyncMock(return_value=client)
+            ),
+            timeout=1.0,
+        )
+
+    assert client.observe_status.call_count == 2
+    client.shutdown.assert_awaited_once()
 
 
 @pytest.fixture(autouse=True)

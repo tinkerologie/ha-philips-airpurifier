@@ -7,6 +7,7 @@ from pathlib import Path
 import runpy
 import shutil
 import subprocess
+import tomllib
 from unittest.mock import patch
 
 import pytest
@@ -108,3 +109,25 @@ def test_minimum_environment_runs_legacy_suite_without_official_plugin() -> None
     check_dependencies.assert_called_once()
     run_tests.assert_called_once()
     assert "--cov=custom_components/philips_airpurifier" in run_tests.call_args.args[0]
+
+
+@pytest.mark.unit
+def test_manifest_and_minimum_runtime_pins_match_pyproject() -> None:
+    """Keep manifest.json and requirements_test_min.txt aligned with pyproject.toml."""
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    runtime_deps: list[str] = pyproject["project"]["dependencies"]
+    airctrl_pins = [dep for dep in runtime_deps if dep.startswith("philips-airctrl==")]
+    assert len(airctrl_pins) == 1, f"Expected one exact philips-airctrl pin in pyproject.toml, got {airctrl_pins}"
+    expected_pin = airctrl_pins[0]
+
+    manifest = json.loads((ROOT / "custom_components/philips_airpurifier/manifest.json").read_text(encoding="utf-8"))
+    assert expected_pin in manifest["requirements"], (
+        f"manifest.json requirements {manifest['requirements']} must include {expected_pin}"
+    )
+
+    min_requirements = [
+        line.strip()
+        for line in (ROOT / "requirements_test_min.txt").read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
+    assert expected_pin in min_requirements, f"requirements_test_min.txt {min_requirements} must include {expected_pin}"

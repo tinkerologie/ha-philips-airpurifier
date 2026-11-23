@@ -213,14 +213,36 @@ async def async_fetch_status_with_nudge(
                         ex,
                     )
             _LOGGER.debug("Nudge: attempt %d/%d sent to %s, awaiting push", attempt, _NUDGE_ATTEMPTS, host)
-            with contextlib.suppress(TimeoutError):
-                await asyncio.wait_for(received.wait(), timeout=_NUDGE_WAIT_TIMEOUT)
+            if not received.is_set() and not watch_task.done():
+                wait_task = asyncio.create_task(received.wait())
+                try:
+                    await asyncio.wait(
+                        {wait_task, watch_task},
+                        timeout=_NUDGE_WAIT_TIMEOUT,
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+                finally:
+                    wait_task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await wait_task
             if received.is_set():
                 _LOGGER.debug("Nudge: push received from %s on attempt %d", host, attempt)
                 if resting_write_acknowledged:
                     key, value = nudge[-1]
                     return {**result["status"], key.partition("#")[0]: value}
                 return result["status"]
+            if watch_task.done():
+                _LOGGER.debug(
+                    "Nudge: observation for %s ended without a push on attempt %d/%d",
+                    host,
+                    attempt,
+                    _NUDGE_ATTEMPTS,
+                )
+                if attempt < _NUDGE_ATTEMPTS:
+                    watch_task = asyncio.create_task(_watch())
+                    await asyncio.sleep(_NUDGE_REGISTER_DELAY)
+                    continue
+                break
             _LOGGER.debug("Nudge: no push from %s after attempt %d/%d", host, attempt, _NUDGE_ATTEMPTS)
         msg = f"no status push from {host} after {_NUDGE_ATTEMPTS} nudge attempts"
         raise TimeoutError(msg)

@@ -7,6 +7,22 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 
 ## [Unreleased]
 
+### Added
+
+- Documented in `README.md` that the PureProtect Lite 700 Series (`AC07xx`) is not supported
+  (verified cloud-only with closed CoAP/TCP ports on `AC0720/10` firmware 0.2.3 / Wi-Fi 1.8.0;
+  `AC0710` and `AC0721` untested) (#215).
+
+### Fixed
+
+- Aligned `manifest.json` and `requirements_test_min.txt` with `pyproject.toml` to pin
+  `philips-airctrl==1.5.1`, ensuring installs receive the upstream `philips-airctrl#44`
+  observation fix, and added a test to keep runtime pins in sync (#217).
+- Status nudges now watch the observation task alongside the push event, immediately
+  reopening the observation on the same client before the next attempt (or failing
+  immediately on the final attempt) instead of waiting out the full timeout on a dead stream
+  (#210).
+
 ## [2026.11.1] - 2026-11-13
 
 ### Fixed
