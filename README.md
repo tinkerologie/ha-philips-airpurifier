@@ -88,6 +88,9 @@ Match the model code on your device label. Available entities depend on the mode
 | Humidifiers             | HU1509, HU1510, HU4209/00, HU5710                                                                                                                                                                                                                                                                              |
 | Fans and heaters        | CX3120, CX3550, CX5120, CX7550                                                                                                                                                                                                                                                                                 |
 
+> [!WARNING]
+> **Known unsupported models:** The **PureProtect Lite 700 Series (AC07xx)** is not supported. On tested **AC0720/10** firmware (device 0.2.3, Wi-Fi 1.8.0), local CoAP and TCP ports are closed, so the device is cloud-only via the Philips Air+ app. Related models (**AC0710**, **AC0721**) are untested.
+
 <details>
 <summary>Model variants and firmware behavior</summary>
 
