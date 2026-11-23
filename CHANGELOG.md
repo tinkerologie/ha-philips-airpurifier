@@ -7,6 +7,8 @@ and this project adheres to [Calendar Versioning](https://calver.org/) (`YYYY.MM
 
 ## [Unreleased]
 
+## [2026.11.2] - 2026-11-23
+
 ### Added
 
 - Documented in `README.md` that the PureProtect Lite 700 Series (`AC07xx`) is not supported
